@@ -6,3 +6,8 @@ class AppException(Exception):
 class AnnouncementNotFoundError(AppException):
     status_code = 404
     detail = "Announcement not found"
+
+
+class InvalidAdminPinError(AppException):
+    status_code = 403
+    detail = "Invalid administration PIN."

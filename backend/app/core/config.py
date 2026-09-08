@@ -1,14 +1,25 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class Settings(BaseSettings):
-    app_name: str = "You Found Me API"
-    app_version: str = "1.0.0"
-    debug: bool = True
-    
-    database_url: str 
-    class Config:
-        env_file = ".env"
-        extra = "ignore"
-        
+    APP_NAME: str = "You Found Me API"
+    APP_VERSION: str = "1.0.0"
+
+    DEBUG: bool = False
+
+    DATABASE_URL: str
+
+    API_PREFIX: str = "/api/v1"
+
+    PROJECT_DESCRIPTION: str = "Backend API for You Found Me."
+
+    ALLOWED_ORIGINS: list[str] = Field(default_factory=list)
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore",
+    )
+
 
 settings = Settings()

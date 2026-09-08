@@ -1,10 +1,12 @@
-from enum import Enum
+from enum import StrEnum
 
-class AnnouncementType(str, Enum):
+
+class AnnouncementType(StrEnum):
     LOST = "LOST"
     FOUND = "FOUND"
-    
-class AnnouncementStatus(str, Enum):
+
+
+class AnnouncementStatus(StrEnum):
     OPEN = "OPEN"
     RESOLVED = "RESOLVED"
     CLOSED = "CLOSED"
