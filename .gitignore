@@ -1,17 +1,25 @@
-# Environment
+# Environment and secrets
 .env
+.env.*
+!.env.example
 
-# Python
+# Python caches and tooling
 __pycache__/
 *.py[cod]
 *.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# Virtual environment
+# Local databases and coverage output
+*.sqlite3
+.coverage
+htmlcov/
+
+# Python
+# Virtual environments
 .venv/
 venv/
-
-# Alembic cache
-alembic/__pycache__/
 
 # VS Code
 .vscode/
