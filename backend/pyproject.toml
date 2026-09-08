@@ -15,9 +15,33 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "ruff>=0.16.1",
     "taskipy>=1.14.1",
 ]
 
 [tool.taskipy.tasks]
 dev = "uvicorn app.main:app --reload"
 start = "uvicorn app.main:app"
+lint = "ruff check ."
+format = "ruff format ."
+check = "ruff check . --fix"
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+exclude = [
+    "alembic/versions",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "I",
+    "UP",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
