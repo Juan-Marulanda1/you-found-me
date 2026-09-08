@@ -76,7 +76,6 @@ API_PREFIX=/api/v1
 ALLOWED_ORIGINS=["http://localhost:3000"]
 ```
 
-No subas `.env` al repositorio. Usa `.env.example` para documentar nombres y formatos, sin credenciales reales.
 
 Aplica las migraciones y levanta el servidor:
 
