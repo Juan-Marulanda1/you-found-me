@@ -40,15 +40,7 @@ class AnnouncementService:
 
         announcement = self.get_by_id(announcement_id)
 
-        self._validate_admin_pin(
-            announcement,
-            data.admin_pin,
-        )
-
-        updates = data.model_dump(
-            exclude_unset=True,
-            exclude={"admin_pin"},
-        )
+        updates = data.model_dump(exclude_unset=True)
 
         logger.info(
             "Updating announcement %s with fields: %s",

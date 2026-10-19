@@ -39,7 +39,9 @@ class AnnouncementCreate(AdminPinSchema):
     address: str | None = Field(default=None, max_length=255)
 
 
-class AnnouncementUpdate(AdminPinSchema):
+class AnnouncementUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     title: str | None = Field(default=None, min_length=5, max_length=150)
     description: str | None = Field(default=None, min_length=10)
     contact_name: str | None = Field(default=None, min_length=2, max_length=100)
