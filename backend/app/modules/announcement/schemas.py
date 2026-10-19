@@ -1,53 +1,47 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
-from .enums import AnnouncementStatus, AnnouncementType
-
-
-class AdminPinSchema(BaseModel):
-    admin_pin: str = Field(
-        ...,
-        min_length=4,
-        max_length=4,
-    )
-
-    @field_validator("admin_pin")
-    @classmethod
-    def validate_pin(cls, value: str) -> str:
-
-        if not value.isdigit():
-            raise ValueError("The PIN must contain only digits.")
-
-        return value
+from app.modules.announcement.enums import AnnouncementStatus
+from app.modules.publication.schemas import (
+    AdminPinAuthSchema,
+    AdminPinCreateSchema,
+    PublicationUpdateSchema,
+)
 
 
-class AnnouncementCreate(AdminPinSchema):
-    title: str = Field(..., min_length=5, max_length=150)
-
-    description: str = Field(..., min_length=10)
-
-    type: AnnouncementType
-
-    contact_name: str = Field(..., min_length=2, max_length=100)
-
-    contact_phone: str = Field(..., min_length=7, max_length=20)
-
-    city: str = Field(..., min_length=2, max_length=100)
-
+class AnnouncementCreate(AdminPinCreateSchema):
+    title: str = Field(min_length=5, max_length=150)
+    description: str = Field(min_length=10, max_length=10_000)
+    category: str = Field(min_length=2, max_length=80)
+    business_name: str | None = Field(default=None, max_length=150)
+    website_url: str | None = Field(default=None, max_length=2048)
+    contact_name: str = Field(min_length=2, max_length=100)
+    contact_phone: str = Field(min_length=7, max_length=20)
+    contact_email: str | None = Field(default=None, max_length=254)
+    city: str = Field(min_length=2, max_length=100)
     address: str | None = Field(default=None, max_length=255)
 
 
-class AnnouncementUpdate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+class AnnouncementUpdate(PublicationUpdateSchema):
+    nullable_fields = {"business_name", "website_url", "contact_email", "address"}
 
     title: str | None = Field(default=None, min_length=5, max_length=150)
-    description: str | None = Field(default=None, min_length=10)
+    description: str | None = Field(default=None, min_length=10, max_length=10_000)
+    category: str | None = Field(default=None, min_length=2, max_length=80)
+    business_name: str | None = Field(default=None, max_length=150)
+    website_url: str | None = Field(default=None, max_length=2048)
+    status: AnnouncementStatus | None = None
     contact_name: str | None = Field(default=None, min_length=2, max_length=100)
     contact_phone: str | None = Field(default=None, min_length=7, max_length=20)
+    contact_email: str | None = Field(default=None, max_length=254)
     city: str | None = Field(default=None, min_length=2, max_length=100)
     address: str | None = Field(default=None, max_length=255)
+
+
+class AnnouncementDelete(AdminPinAuthSchema):
+    pass
 
 
 class AnnouncementResponse(BaseModel):
@@ -56,15 +50,14 @@ class AnnouncementResponse(BaseModel):
     id: UUID
     title: str
     description: str
-    type: AnnouncementType
+    category: str
+    business_name: str | None
+    website_url: str | None
     status: AnnouncementStatus
     contact_name: str
     contact_phone: str
+    contact_email: str | None
     city: str
     address: str | None
     created_at: datetime
     updated_at: datetime
-
-
-class AnnouncementDelete(AdminPinSchema):
-    pass

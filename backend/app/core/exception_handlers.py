@@ -1,9 +1,13 @@
+import logging
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.core.exceptions import AppException
 from app.core.responses import DataResponse
+
+logger = logging.getLogger(__name__)
 
 
 def _build_error_response(message: str, status_code: int):
@@ -45,4 +49,5 @@ def register_exception_handlers(app: FastAPI):
         request: Request,
         exc: Exception,
     ):
+        logger.exception("Unhandled error while processing %s", request.url.path)
         return _build_error_response("Internal server error", 500)

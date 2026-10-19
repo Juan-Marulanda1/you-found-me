@@ -7,7 +7,8 @@ from .repository import AnnouncementRepository
 from .service import AnnouncementService
 
 
-def get_service(db: Session = Depends(get_db)) -> AnnouncementService:
-    repository = AnnouncementRepository(db)
+def get_announcement_service(db: Session = Depends(get_db)) -> AnnouncementService:
+    return AnnouncementService(AnnouncementRepository(db))
 
-    return AnnouncementService(repository)
+
+get_service = get_announcement_service

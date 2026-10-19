@@ -1,0 +1,72 @@
+from datetime import datetime
+from decimal import Decimal
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.modules.publication.schemas import (
+    AdminPinAuthSchema,
+    AdminPinCreateSchema,
+    PublicationUpdateSchema,
+)
+
+from .enums import ProductStatus
+
+
+class ProductCreate(AdminPinCreateSchema):
+    title: str = Field(min_length=3, max_length=150)
+    description: str = Field(min_length=10, max_length=10_000)
+    category: str = Field(min_length=2, max_length=80)
+    price: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
+    currency: str = Field(
+        default="COP", min_length=3, max_length=3, pattern=r"^[A-Z]{3}$"
+    )
+    quantity: int | None = Field(default=None, ge=0)
+    contact_name: str = Field(min_length=2, max_length=100)
+    contact_phone: str = Field(min_length=7, max_length=20)
+    contact_email: str | None = Field(default=None, max_length=254)
+    city: str = Field(min_length=2, max_length=100)
+    address: str | None = Field(default=None, max_length=255)
+
+
+class ProductUpdate(PublicationUpdateSchema):
+    nullable_fields = {"quantity", "contact_email", "address"}
+
+    title: str | None = Field(default=None, min_length=3, max_length=150)
+    description: str | None = Field(default=None, min_length=10, max_length=10_000)
+    category: str | None = Field(default=None, min_length=2, max_length=80)
+    price: Decimal | None = Field(default=None, gt=0, max_digits=12, decimal_places=2)
+    currency: str | None = Field(
+        default=None, min_length=3, max_length=3, pattern=r"^[A-Z]{3}$"
+    )
+    quantity: int | None = Field(default=None, ge=0)
+    status: ProductStatus | None = None
+    contact_name: str | None = Field(default=None, min_length=2, max_length=100)
+    contact_phone: str | None = Field(default=None, min_length=7, max_length=20)
+    contact_email: str | None = Field(default=None, max_length=254)
+    city: str | None = Field(default=None, min_length=2, max_length=100)
+    address: str | None = Field(default=None, max_length=255)
+
+
+class ProductResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    title: str
+    description: str
+    category: str
+    price: Decimal
+    currency: str
+    quantity: int | None
+    status: ProductStatus
+    contact_name: str
+    contact_phone: str
+    contact_email: str | None
+    city: str
+    address: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProductDelete(AdminPinAuthSchema):
+    pass

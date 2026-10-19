@@ -12,7 +12,9 @@ class Settings(BaseSettings):
 
     API_PREFIX: str = "/api/v1"
 
-    PROJECT_DESCRIPTION: str = "Backend API for You Found Me."
+    PROJECT_DESCRIPTION: str = (
+        "API for product listings and business announcements."
+    )
 
     ALLOWED_ORIGINS: list[str] = Field(default_factory=list)
 

@@ -3,11 +3,20 @@ class AppException(Exception):
     detail = "Application error"
 
 
-class AnnouncementNotFoundError(AppException):
+class PublicationNotFoundError(AppException):
     status_code = 404
+    detail = "Publication not found"
+
+
+class AnnouncementNotFoundError(PublicationNotFoundError):
     detail = "Announcement not found"
 
 
 class InvalidAdminPinError(AppException):
     status_code = 403
-    detail = "Invalid administration PIN."
+    detail = "Invalid management PIN."
+
+
+class TooManyAdminPinAttemptsError(AppException):
+    status_code = 429
+    detail = "Too many invalid PIN attempts. Try again later."
