@@ -1,160 +1,132 @@
-# You Found Me
+# You Found Me API
 
-API para publicar y consultar avisos de objetos, mascotas o personas perdidas y encontradas. Cada aviso puede incluir información de contacto y un PIN de administración de cuatro dígitos para autorizar su eliminación, sin necesidad de crear una cuenta.
-
-> El backend está funcional. El frontend todavía se encuentra en una etapa inicial y no incluye una interfaz implementada.
-
-## Funcionalidades actuales
-
-- Crear avisos de tipo `LOST` o `FOUND`.
-- Consultar un aviso por su UUID.
-- Listar todos los avisos.
-- Eliminar un aviso mediante su PIN de administración.
-- Estados de aviso: `OPEN`, `RESOLVED` y `CLOSED`.
-- Validación de datos con Pydantic.
-- Persistencia en PostgreSQL con SQLAlchemy.
-- Migraciones de base de datos con Alembic.
-- Documentación interactiva OpenAPI/Swagger generada por FastAPI.
+Backend API para publicar productos en venta y anuncios generales de negocios y emprendimientos. El proyecto separa ambos dominios y comparte la persistencia, paginación y gestión de publicaciones.
 
 ## Tecnologías
 
-- Python 3.12+
-- FastAPI y Uvicorn
-- SQLAlchemy 2
-- PostgreSQL y `psycopg`
-- Alembic
-- Pydantic Settings
+- Python 3.12+, FastAPI y Pydantic
+- SQLAlchemy 2 y PostgreSQL
+- Alembic para migraciones
 - `uv` para dependencias y tareas
-- Ruff para linting y formateo
-- React, como base del frontend en desarrollo
+- Ruff para estilo y lint
 
 ## Estructura
 
 ```text
-you-found-me/
-├── backend/
-│   ├── app/
-│   │   ├── api/                 # Router principal
-│   │   ├── core/                # Configuración y respuestas comunes
-│   │   ├── database/            # Sesión, modelos base y mixins
-│   │   └── modules/announcement/ # Avisos: rutas, servicio, repositorio y esquemas
-│   ├── alembic/                 # Migraciones
-│   ├── .env.example             # Plantilla de configuración
-│   └── pyproject.toml           # Dependencias y tareas
-└── frontend/                    # Cliente React en construcción
+backend/app/
+├── api/                 # Composición de routers
+├── core/                # Configuración, errores, PIN y paginación
+├── database/            # Sesiones, mixins y adaptador SQLAlchemy
+└── modules/
+    ├── announcement/    # Avisos comerciales y de emprendimientos
+    ├── product/         # Productos en venta
+    └── publication/     # Contratos compartidos entre publicaciones
 ```
 
-## Requisitos
+## Instalación
 
-- Python 3.12 o superior
-- [uv](https://docs.astral.sh/uv/getting-started/installation/)
-- PostgreSQL disponible localmente o mediante un proveedor
-
-## Instalación y ejecución
-
-Desde la raíz del repositorio:
+Requiere Python 3.12+, `uv` y PostgreSQL. Desde `backend/`:
 
 ```bash
-cd backend
 uv sync
+Copy-Item .env.example .env # PowerShell; en macOS/Linux: cp .env.example .env
 ```
 
-Crea tu archivo local de variables de entorno a partir de la plantilla:
-
-```bash
-cp .env.example .env
-```
-
-En Windows PowerShell, usa `Copy-Item .env.example .env`. Completa al menos `DATABASE_URL` en `.env`:
-
-```env
-APP_NAME=You Found Me API
-APP_VERSION=1.0.0
-DEBUG=True
-DATABASE_URL=postgresql+psycopg://usuario:contrasena@localhost:5432/you_found_me
-API_PREFIX=/api/v1
-ALLOWED_ORIGINS=["http://localhost:3000"]
-```
-
-
-Aplica las migraciones y levanta el servidor:
+Para iniciar PostgreSQL local desde la raíz del repositorio, ejecuta `docker compose --env-file backend/.env up -d database`. Los valores predeterminados del servicio son solo para desarrollo. Configura `DATABASE_URL` y `ALLOWED_ORIGINS` en `backend/.env`. Antes de actualizar una base de datos que ya tenga avisos, crea un respaldo. La migración actual transforma los PIN existentes en hashes y no permite volver automáticamente al esquema anterior.
 
 ```bash
 uv run alembic upgrade head
 uv run task dev
 ```
 
-La API estará disponible en `http://localhost:8000`. La documentación se encuentra en:
+La API queda en `http://localhost:8000`; Swagger UI en `/docs` y ReDoc en `/redoc`.
 
-- Swagger UI: `http://localhost:8000/docs`
-- ReDoc: `http://localhost:8000/redoc`
+## Contrato de la API
 
-## API
+Todas las rutas llevan el prefijo `/api/v1` y las respuestas usan `{ "success", "message", "data" }`.
 
-El prefijo actual es `/api/v1` y todas las respuestas usan una envoltura con `message` y `data`.
+| Recurso | Método y ruta | Uso |
+| --- | --- | --- |
+| Anuncios | `POST /announcements` | Crear un anuncio de negocio o emprendimiento |
+| Anuncios | `GET /announcements` | Listar con filtros y paginación |
+| Anuncios | `GET /announcements/{id}` | Consultar un anuncio |
+| Anuncios | `PATCH /announcements/{id}` | Editar con su PIN |
+| Anuncios | `DELETE /announcements/{id}` | Borrar con su PIN |
+| Productos | `POST /products` | Crear un producto |
+| Productos | `GET /products` | Listar con filtros y paginación |
+| Productos | `GET /products/{id}` | Consultar un producto |
+| Productos | `PATCH /products/{id}` | Editar con su PIN |
+| Productos | `DELETE /products/{id}` | Borrar con su PIN |
 
-| Método   | Ruta                                      | Descripción                          |
-| -------- | ----------------------------------------- | ------------------------------------ |
-| `POST`   | `/api/v1/announcements`                   | Crea un aviso.                       |
-| `GET`    | `/api/v1/announcements`                   | Lista los avisos.                    |
-| `GET`    | `/api/v1/announcements/{announcement_id}` | Obtiene un aviso por UUID.           |
-| `DELETE` | `/api/v1/announcements/{announcement_id}` | Elimina un aviso usando `admin_pin`. |
+Los listados aceptan `page` (empieza en 1), `page_size` (1–100, predeterminado 20), `city`, `category`, `status` y `search` (busca en título y descripción; en anuncios también en el nombre del negocio). Los productos aceptan además `min_price` y `max_price`. La respuesta de lista incluye `items`, `page`, `page_size`, `total` y `pages`.
 
-### Crear un aviso
+### Crear un anuncio
 
-```bash
-curl -X POST http://localhost:8000/api/v1/announcements \
-	-H "Content-Type: application/json" \
-	-d '{
-		"title": "Perro encontrado en Laureles",
-		"description": "Perro mediano, color café, encontrado cerca del parque.",
-		"type": "FOUND",
-		"admin_pin": "1234",
-		"contact_name": "Ana Pérez",
-		"contact_phone": "3001234567",
-		"city": "Medellín",
-		"address": "Carrera 76 #34-20"
-	}'
+```json
+{
+  "admin_pin": "482931",
+  "title": "Pan artesanal todos los días",
+  "description": "Pan de masa madre preparado en nuestro emprendimiento local.",
+  "category": "Alimentos",
+  "business_name": "Horno Andino",
+  "contact_name": "Ana Pérez",
+  "contact_phone": "3001234567",
+  "contact_email": "hola@horno.example",
+  "city": "Medellín",
+  "address": "Laureles"
+}
 ```
 
-El campo `admin_pin` debe contener exactamente cuatro dígitos. Los campos `title`, `description`, `contact_name`, `contact_phone` y `city` también tienen validaciones de longitud; la documentación de Swagger muestra el contrato completo.
+### Crear un producto
 
-### Eliminar un aviso
-
-```bash
-curl -X DELETE http://localhost:8000/api/v1/announcements/<UUID> \
-	-H "Content-Type: application/json" \
-	-d '{"admin_pin": "1234"}'
+```json
+{
+  "admin_pin": "482931",
+  "title": "Mesa de madera",
+  "description": "Mesa artesanal para comedor, en excelente estado.",
+  "category": "Hogar",
+  "price": "250000.00",
+  "currency": "COP",
+  "quantity": 1,
+  "contact_name": "Ana Pérez",
+  "contact_phone": "3001234567",
+  "city": "Medellín"
+}
 ```
 
-## Tareas de desarrollo
+Los PIN nuevos deben tener entre 6 y 12 dígitos. La base de datos almacena hashes con sal, nunca el PIN original. Los avisos existentes conservan sus PIN de cuatro dígitos hasta que el usuario decida cambiarlos; el contrato de actualización y borrado los acepta durante esa transición.
 
-Ejecuta estos comandos desde `backend/`:
+Después de cinco PIN incorrectos para la misma publicación desde la misma dirección de origen, la API bloquea nuevos intentos durante 15 minutos. El contador está en memoria por proceso; un despliegue con varias instancias debe mover esta limitación a Redis o al proxy de entrada.
 
-```bash
-uv run task dev      # Servidor con recarga automática
-uv run task start    # Servidor sin recarga
-uv run task lint     # Comprueba el código con Ruff
-uv run task format   # Formatea el código
-uv run task check    # Aplica correcciones automáticas de Ruff
+### Editar y borrar
+
+`PATCH` incluye el PIN actual y al menos un campo modificable. Puede incluir `new_admin_pin` para cambiarlo; el nuevo PIN debe tener entre 6 y 12 dígitos. `DELETE` recibe solamente el PIN actual:
+
+```json
+{ "admin_pin": "482931", "title": "Nuevo título", "new_admin_pin": "731846" }
 ```
 
-## Próximos pasos
+```json
+{ "admin_pin": "482931" }
+```
 
-- [ ] Implementar la interfaz web de React.
-- [ ] Añadir actualización de avisos mediante `PATCH`.
-- [ ] Incorporar filtros por ciudad, tipo y estado.
-- [ ] Añadir subida de imágenes.
-- [ ] Añadir pruebas automatizadas para la API.
-- [ ] Añadir autenticación o un mecanismo más robusto que el PIN de cuatro dígitos.
+Los estados de anuncios son `ACTIVE`, `PAUSED` y `CLOSED`; en productos son `ACTIVE`, `SOLD` y `CLOSED`. Las respuestas públicas nunca incluyen el hash del PIN.
 
-## Contribuir
+### Sección “Tus publicaciones”
 
-1. Crea una rama para tu cambio: `git checkout -b feature/nombre-del-cambio`.
-2. Instala las dependencias y ejecuta `uv run task lint`.
-3. Haz un commit descriptivo.
-4. Abre un Pull Request con el contexto y las pruebas realizadas.
+El PIN es individual para cada anuncio o producto. Para una interfaz sencilla sin cuentas, el frontend puede guardar en `localStorage` pares `{ "kind": "product", "id": "..." }` o `{ "kind": "announcement", "id": "..." }` al recibir una creación exitosa. La sección carga cada elemento con su ruta `GET`, y solicita el PIN al editar o borrar. No guardes el PIN en el navegador. Esta lista solo existe en ese navegador; no recupera publicaciones en otro dispositivo ni después de borrar los datos locales.
 
-## Licencia
+La API devuelve los campos de contacto en consultas públicas. Antes de publicar en producción, define qué datos deben mostrarse y cuáles deben reservarse para contacto privado.
 
-Este proyecto todavía no tiene una licencia definida.
+## Desarrollo
+
+Desde `backend/`:
+
+```bash
+uv run task dev
+uv run task lint
+uv run task format
+uv run task test
+```
+
+Las migraciones se ejecutan con `uv run alembic upgrade head`. Alembic carga todos los modelos registrados para que la autogeneración compare el esquema completo.

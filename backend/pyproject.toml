@@ -1,7 +1,7 @@
 [project]
 name = "backend"
 version = "0.1.0"
-description = "Backend API for You Found Me"
+description = "Backend API for product listings and business announcements"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -25,6 +25,7 @@ start = "uvicorn app.main:app"
 lint = "ruff check ."
 format = "ruff format ."
 check = "ruff check . --fix"
+test = "python -m unittest discover -s tests"
 
 [tool.ruff]
 line-length = 88
