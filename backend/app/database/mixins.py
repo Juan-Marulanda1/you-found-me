@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import DateTime, func, text
+from sqlalchemy import DateTime, String, func, text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -31,3 +31,14 @@ class TimestampMixin:
         onupdate=func.now(),
         nullable=False,
     )
+
+
+class PublicationContactMixin:
+    """Shared contact and management fields for public listings."""
+
+    contact_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    contact_phone: Mapped[str] = mapped_column(String(20), nullable=False)
+    contact_email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    city: Mapped[str] = mapped_column(String(100), nullable=False)
+    address: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    admin_pin_hash: Mapped[str] = mapped_column(String(128), nullable=False)

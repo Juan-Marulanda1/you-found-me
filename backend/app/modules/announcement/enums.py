@@ -1,12 +1,7 @@
 from enum import StrEnum
 
 
-class AnnouncementType(StrEnum):
-    LOST = "LOST"
-    FOUND = "FOUND"
-
-
 class AnnouncementStatus(StrEnum):
-    OPEN = "OPEN"
-    RESOLVED = "RESOLVED"
+    ACTIVE = "ACTIVE"
+    PAUSED = "PAUSED"
     CLOSED = "CLOSED"
