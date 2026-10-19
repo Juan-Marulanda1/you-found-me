@@ -1,6 +1,4 @@
-# for the migration to be created, the models must be imported
+from app.modules.announcement.model import Announcement
+from app.modules.product.model import Product
 
-
-all = [
-    "Announcement",
-]
+__all__ = ["Announcement", "Product"]
