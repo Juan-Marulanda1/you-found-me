@@ -20,8 +20,8 @@ dev = [
 ]
 
 [tool.taskipy.tasks]
-dev = "uvicorn app.main:app --reload"
-start = "uvicorn app.main:app"
+dev = "python server.py --reload"
+start = "python server.py"
 lint = "ruff check ."
 format = "ruff format ."
 check = "ruff check . --fix"
