@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 
 
 class ProductService:
+    """Reglas de negocio de productos: creación, visibilidad y autorización."""
+
     def __init__(
         self,
         repository: PublicationRepository[Product],
@@ -25,6 +27,7 @@ class ProductService:
         self.limiter = limiter
 
     def create(self, data: ProductCreate, owner_id: UUID | None = None) -> Product:
+        """Crea la publicación activa y, si llega un PIN, guarda solo su hash."""
         values = data.model_dump(exclude={"admin_pin"})
         product = Product(
             **values,
@@ -35,12 +38,14 @@ class ProductService:
         return self.repository.create(product)
 
     def get_by_id(self, product_id: UUID) -> Product:
+        """Obtiene la publicación o lanza PublicationNotFoundError."""
         product = self.repository.get_by_id(product_id)
         if product is None:
             raise PublicationNotFoundError()
         return product
 
     def get_public_by_id(self, product_id: UUID) -> Product:
+        """Solo devuelve publicaciones activas; las demás responden 404."""
         product = self.get_by_id(product_id)
         if product.status != ProductStatus.ACTIVE:
             raise PublicationNotFoundError()
@@ -53,6 +58,7 @@ class ProductService:
         client_ip: str = "unknown",
         owner_id: UUID | None = None,
     ) -> Product:
+        """Obtiene la publicación tras autorizar al dueño o el PIN heredado."""
         product = self.get_by_id(product_id)
         self._authorize(product, admin_pin, client_ip, owner_id)
         return product
@@ -66,6 +72,7 @@ class ProductService:
     def claim(
         self, product_id: UUID, admin_pin: str, owner_id: UUID, client_ip: str
     ) -> Product:
+        """Asigna una publicación antigua a la cuenta si el PIN es correcto."""
         # Solo se reclama un registro sin dueño y después de validar su PIN.
         product = self.get_by_id(product_id)
         if product.owner_id == owner_id:
@@ -108,6 +115,7 @@ class ProductService:
         client_ip: str = "unknown",
         owner_id: UUID | None = None,
     ) -> Product:
+        """Aplica solo los campos enviados y, si se pide, reemplaza el PIN."""
         product = self.get_by_id(product_id)
         self._authorize(product, data.admin_pin, client_ip, owner_id)
 
@@ -128,6 +136,7 @@ class ProductService:
         before_delete: Callable[[UUID], None] | None = None,
         owner_id: UUID | None = None,
     ) -> None:
+        """Autoriza, ejecuta before_delete (p. ej. borrar archivos) y elimina."""
         product = self.get_by_id(product_id)
         self._authorize(product, admin_pin, client_ip, owner_id)
         if before_delete is not None:
@@ -135,6 +144,7 @@ class ProductService:
         self.repository.delete(product)
 
     def _validate_pin(self, product: Product, admin_pin: str, client_ip: str) -> None:
+        """Valida el PIN aplicando el límite de intentos por IP."""
         self.limiter.check("product", product.id, client_ip)
         if not product.admin_pin_hash or not verify_admin_pin(
             admin_pin, product.admin_pin_hash

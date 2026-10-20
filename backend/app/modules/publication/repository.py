@@ -8,11 +8,15 @@ Entity = TypeVar("Entity")
 
 @dataclass(frozen=True)
 class PageResult[Entity]:
+    """Resultado de una consulta paginada antes de convertirse en PageData."""
+
     items: list[Entity]
     total: int
 
 
 class PublicationRepository(Protocol[Entity]):
+    """Contrato que los servicios esperan; permite usar dobles en las pruebas."""
+
     def create(self, publication: Entity) -> Entity: ...
 
     def get_by_id(self, publication_id: UUID) -> Entity | None: ...

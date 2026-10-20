@@ -8,6 +8,7 @@ from app.core.config import settings
 def require_publication_creation_key(
     x_publication_key: str | None = Header(default=None, alias="X-Publication-Key"),
 ) -> None:
+    """Dependencia que exige X-Publication-Key igual a PUBLICATION_CREATION_KEY."""
     configured_key = settings.PUBLICATION_CREATION_KEY.get_secret_value()
     if not configured_key:
         raise HTTPException(

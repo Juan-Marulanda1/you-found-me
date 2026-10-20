@@ -9,12 +9,19 @@ from app.core.exceptions import TooManyAdminPinAttemptsError
 
 @dataclass
 class _AttemptState:
+    """Fallos recientes y bloqueo vigente de una combinación recurso + IP."""
+
     failures: deque[float] = field(default_factory=deque)
     locked_until: float = 0
 
 
 class PinAttemptLimiter:
-    """Limita intentos consecutivos de PIN dentro del proceso de la API."""
+    """Limita intentos consecutivos de PIN dentro del proceso de la API.
+
+    La clave es (tipo, id de publicación, IP). Tras max_attempts fallos dentro de
+    window_seconds, la combinación queda bloqueada durante esa misma ventana.
+    El estado vive en memoria: no se comparte entre procesos ni sobrevive reinicios.
+    """
 
     def __init__(self, max_attempts: int = 5, window_seconds: int = 900):
         self.max_attempts = max_attempts
@@ -24,6 +31,7 @@ class PinAttemptLimiter:
         self._operations = 0
 
     def check(self, resource_type: str, resource_id: UUID, client_ip: str) -> None:
+        """Lanza TooManyAdminPinAttemptsError si la combinación está bloqueada."""
         key = (resource_type, resource_id, client_ip)
         now = monotonic()
         with self._lock:
@@ -40,6 +48,7 @@ class PinAttemptLimiter:
     def record_failure(
         self, resource_type: str, resource_id: UUID, client_ip: str
     ) -> None:
+        """Registra un PIN incorrecto y activa el bloqueo al llegar al límite."""
         key = (resource_type, resource_id, client_ip)
         now = monotonic()
         with self._lock:
@@ -53,10 +62,12 @@ class PinAttemptLimiter:
     def record_success(
         self, resource_type: str, resource_id: UUID, client_ip: str
     ) -> None:
+        """Reinicia el contador tras un PIN correcto."""
         with self._lock:
             self._states.pop((resource_type, resource_id, client_ip), None)
 
     def _trim(self, state: _AttemptState, now: float) -> None:
+        """Descarta fallos más antiguos que la ventana."""
         while state.failures and now - state.failures[0] >= self.window_seconds:
             state.failures.popleft()
 
@@ -74,4 +85,5 @@ class PinAttemptLimiter:
             self._states.pop(key, None)
 
 
+# Instancia compartida por los servicios de productos y avisos.
 pin_attempt_limiter = PinAttemptLimiter()

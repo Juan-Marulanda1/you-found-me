@@ -12,6 +12,8 @@ if TYPE_CHECKING:
 
 
 class AnnouncementImage(Base, UUIDMixin, TimestampMixin):
+    """Metadatos de una imagen de aviso; el archivo vive en Supabase Storage."""
+
     __tablename__ = "announcement_images"
     __table_args__ = (
         CheckConstraint("size_bytes > 0", name="ck_announcement_images_size_positive"),

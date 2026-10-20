@@ -51,6 +51,8 @@ class ProductUpdate(PublicationUpdateSchema):
 
 
 class ProductResponse(BaseModel):
+    """Vista pública: omite correo, dirección y el teléfono sin consentimiento."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
@@ -70,6 +72,8 @@ class ProductResponse(BaseModel):
 
 
 class ProductManagementResponse(BaseModel):
+    """Vista privada para quien administra la publicación."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID

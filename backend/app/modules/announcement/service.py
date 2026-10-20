@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 
 class AnnouncementService:
+    """Reglas de negocio de avisos: creación, visibilidad y autorización."""
+
     def __init__(
         self,
         repository: PublicationRepository[Announcement],
@@ -26,6 +28,7 @@ class AnnouncementService:
     def create(
         self, data: AnnouncementCreate, owner_id: UUID | None = None
     ) -> Announcement:
+        """Crea la publicación activa y, si llega un PIN, guarda solo su hash."""
         values = data.model_dump(exclude={"admin_pin"})
         announcement = Announcement(
             **values,
@@ -36,12 +39,14 @@ class AnnouncementService:
         return self.repository.create(announcement)
 
     def get_by_id(self, announcement_id: UUID) -> Announcement:
+        """Obtiene la publicación o lanza PublicationNotFoundError."""
         announcement = self.repository.get_by_id(announcement_id)
         if announcement is None:
             raise PublicationNotFoundError()
         return announcement
 
     def get_public_by_id(self, announcement_id: UUID) -> Announcement:
+        """Solo devuelve publicaciones activas; las demás responden 404."""
         announcement = self.get_by_id(announcement_id)
         if announcement.status != AnnouncementStatus.ACTIVE:
             raise PublicationNotFoundError()
@@ -54,6 +59,7 @@ class AnnouncementService:
         client_ip: str = "unknown",
         owner_id: UUID | None = None,
     ) -> Announcement:
+        """Obtiene la publicación tras autorizar al dueño o el PIN heredado."""
         announcement = self.get_by_id(announcement_id)
         self._authorize(announcement, admin_pin, client_ip, owner_id)
         return announcement
@@ -67,6 +73,7 @@ class AnnouncementService:
     def claim(
         self, announcement_id: UUID, admin_pin: str, owner_id: UUID, client_ip: str
     ) -> Announcement:
+        """Asigna una publicación antigua a la cuenta si el PIN es correcto."""
         # Solo se reclama un registro sin dueño y después de validar su PIN.
         announcement = self.get_by_id(announcement_id)
         if announcement.owner_id == owner_id:
@@ -105,6 +112,7 @@ class AnnouncementService:
         client_ip: str = "unknown",
         owner_id: UUID | None = None,
     ) -> Announcement:
+        """Aplica solo los campos enviados y, si se pide, reemplaza el PIN."""
         announcement = self.get_by_id(announcement_id)
         self._authorize(announcement, data.admin_pin, client_ip, owner_id)
 
@@ -125,6 +133,7 @@ class AnnouncementService:
         before_delete: Callable[[UUID], None] | None = None,
         owner_id: UUID | None = None,
     ) -> None:
+        """Autoriza, ejecuta before_delete (p. ej. borrar archivos) y elimina."""
         announcement = self.get_by_id(announcement_id)
         self._authorize(announcement, admin_pin, client_ip, owner_id)
         if before_delete is not None:
@@ -134,6 +143,7 @@ class AnnouncementService:
     def _validate_pin(
         self, announcement: Announcement, admin_pin: str, client_ip: str
     ) -> None:
+        """Valida el PIN aplicando el límite de intentos por IP."""
         self.limiter.check("announcement", announcement.id, client_ip)
         if not announcement.admin_pin_hash or not verify_admin_pin(
             admin_pin, announcement.admin_pin_hash

@@ -4,6 +4,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class AdminPinCreateSchema(BaseModel):
+    """Base de creación: rechaza campos desconocidos y valida PIN nuevos."""
+
     model_config = ConfigDict(extra="forbid")
 
     admin_pin: str | None = Field(
@@ -12,11 +14,15 @@ class AdminPinCreateSchema(BaseModel):
 
 
 class PublicationCreateSchema(AdminPinCreateSchema):
+    """Campos comunes al crear cualquier tipo de publicación."""
+
     # El teléfono es privado salvo que quien publica autorice mostrarlo.
     contact_phone_public: bool = False
 
 
 class AdminPinAuthSchema(BaseModel):
+    """Cuerpo de gestión; el PIN solo aplica a registros antiguos."""
+
     model_config = ConfigDict(extra="forbid")
 
     # Acepta PIN de cuatro dígitos para administrar registros de la primera versión.
@@ -26,6 +32,8 @@ class AdminPinAuthSchema(BaseModel):
 
 
 class PublicationUpdateSchema(AdminPinAuthSchema):
+    """Actualización parcial: exige un campo y solo admite null en nullable_fields."""
+
     nullable_fields: ClassVar[set[str]] = set()
 
     new_admin_pin: str | None = Field(

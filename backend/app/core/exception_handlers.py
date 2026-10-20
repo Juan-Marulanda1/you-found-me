@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def _build_error_response(message: str, status_code: int):
+    """Crea una respuesta de error con la misma envoltura que las exitosas."""
     return JSONResponse(
         status_code=status_code,
         content=DataResponse[None](success=False, message=message).model_dump(),
@@ -44,6 +45,7 @@ def register_exception_handlers(app: FastAPI):
         )
         return _build_error_response(message, 422)
 
+    # Último recurso: registra el detalle técnico y devuelve un mensaje genérico.
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(
         request: Request,

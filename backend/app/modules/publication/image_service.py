@@ -35,7 +35,13 @@ _CONTENT_TYPE_EXTENSIONS: dict[PublicationImageContentType, str] = {
 
 
 class PublicationImageService[ImageModel]:
-    """Valida cargas y coordina sus metadatos con Supabase Storage."""
+    """Valida cargas y coordina sus metadatos con Supabase Storage.
+
+    Ciclo de una imagen: create_upload la registra como PENDING y firma la
+    carga; el navegador sube el archivo a Storage; complete verifica el objeto
+    real y la marca READY. Solo las imágenes READY aparecen en el catálogo.
+    Cada dominio la especializa con su modelo, prefijo y errores propios.
+    """
 
     def __init__(
         self,
@@ -79,9 +85,11 @@ class PublicationImageService[ImageModel]:
     def create_upload(
         self, publication: Any, data: PublicationImageUploadRequest
     ) -> PublicationImageUploadResponse:
+        """Valida tamaño y cupo, registra la imagen pendiente y firma su carga."""
         if data.size_bytes > self.max_bytes:
             raise self.validation_error()
 
+        # Las cargas pendientes también ocupan cupo para evitar exceder el límite.
         current_images = self.repository.list_for_publication(publication.id)
         if len(current_images) >= self.max_count:
             raise self.limit_error()
@@ -105,6 +113,7 @@ class PublicationImageService[ImageModel]:
         try:
             signed_upload: SignedUpload = self.storage.create_signed_upload(path)
         except SupabaseStorageError:
+            # Sin URL firmada el registro pendiente no sirve; se descarta.
             self.repository.delete(image)
             raise ImageStorageUnavailableError() from None
 
@@ -119,6 +128,7 @@ class PublicationImageService[ImageModel]:
     def complete(
         self, publication_id: UUID, image_id: UUID
     ) -> PublicationImageResponse:
+        """Confirma una carga si el archivo en Storage coincide con lo declarado."""
         image = self._get_image(publication_id, image_id)
         if image.status == "READY":
             return self._as_response(image)
@@ -132,6 +142,7 @@ class PublicationImageService[ImageModel]:
 
         # La URL firmada autoriza la carga, pero el servidor verifica el objeto real
         # antes de publicarlo.
+        # Supabase expone estos datos con nombres distintos según la versión.
         object_metadata = metadata.get("metadata") or {}
         actual_size = (
             metadata.get("size")
@@ -164,6 +175,7 @@ class PublicationImageService[ImageModel]:
         return self._as_response(image)
 
     def list_public(self, publication_id: UUID) -> list[PublicationImageResponse]:
+        """Imágenes listas para mostrar en el catálogo."""
         return [
             self._as_response(image)
             for image in self.repository.list_for_publication(
@@ -174,6 +186,7 @@ class PublicationImageService[ImageModel]:
     def list_cover_images(
         self, publication_ids: Sequence[UUID]
     ) -> dict[UUID, PublicationImageResponse]:
+        """Portada de cada publicación; vacío si Storage no está configurado."""
         if not self.storage.project_url:
             return {}
         return {
@@ -186,6 +199,7 @@ class PublicationImageService[ImageModel]:
     def list_management(
         self, publication_id: UUID
     ) -> list[PublicationImageManagementResponse]:
+        """Todas las imágenes con su estado, para la pantalla de gestión."""
         return [
             self.management_response_model(
                 **self._as_response(image).model_dump(), status=image.status
@@ -194,6 +208,7 @@ class PublicationImageService[ImageModel]:
         ]
 
     def delete(self, publication_id: UUID, image_id: UUID) -> None:
+        """Borra el archivo en Storage y después su registro."""
         image = self._get_image(publication_id, image_id)
         try:
             self.storage.remove([image.storage_path])
@@ -202,6 +217,7 @@ class PublicationImageService[ImageModel]:
         self.repository.delete(image)
 
     def remove_publication_files(self, publication_id: UUID) -> None:
+        """Borra de Storage los archivos de una publicación antes de eliminarla."""
         images = self.repository.list_for_publication(publication_id)
         try:
             self.storage.remove([image.storage_path for image in images])
@@ -209,12 +225,14 @@ class PublicationImageService[ImageModel]:
             raise ImageStorageUnavailableError() from None
 
     def _get_image(self, publication_id: UUID, image_id: UUID) -> ImageModel:
+        """Obtiene la imagen y comprueba que pertenezca a la publicación indicada."""
         image = self.repository.get_by_id(image_id)
         if image is None or getattr(image, self.owner_field) != publication_id:
             raise self.not_found_error()
         return image
 
     def _as_response(self, image: ImageModel) -> PublicationImageResponse:
+        """Convierte el modelo en respuesta con su URL pública."""
         return self.image_response_model(
             id=image.id,
             url=self.storage.public_url(image.storage_path),

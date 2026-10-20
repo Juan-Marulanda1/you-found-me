@@ -38,6 +38,8 @@ logger = logging.getLogger(__name__)
 
 
 class AccountInvitationRequest(BaseModel):
+    """Correo a invitar; se normaliza en minúsculas."""
+
     model_config = ConfigDict(extra="forbid")
 
     email: str = Field(min_length=5, max_length=254)
@@ -58,6 +60,8 @@ class AccountInvitationRequest(BaseModel):
 
 
 class LegacyPublicationCandidate(BaseModel):
+    """Resumen de una publicación antigua que la cuenta puede reclamar."""
+
     kind: Literal["product", "announcement"]
     id: UUID
     title: str
@@ -70,12 +74,16 @@ class LegacyPublicationCandidate(BaseModel):
 
 
 class OwnedPublicationsResponse(BaseModel):
+    """Publicaciones propias y reclamables de la cuenta."""
+
     products: list[ProductManagementResponse]
     announcements: list[AnnouncementManagementResponse]
     claimable: list[LegacyPublicationCandidate]
 
 
 class ClaimPublicationRequest(BaseModel):
+    """Datos para reclamar una publicación antigua con su PIN."""
+
     model_config = ConfigDict(extra="forbid")
 
     kind: Literal["product", "announcement"]
@@ -93,6 +101,7 @@ def request_account_invitation(
     data: AccountInvitationRequest,
     db: Session = Depends(get_db),
 ):
+    """Valida la clave de invitación y autoriza el correo para publicar."""
     # El correo se autoriza aunque Supabase indique que la cuenta ya existía.
     try:
         invite_account(data.email)
@@ -126,6 +135,7 @@ def get_my_publications(
         get_announcement_image_service
     ),
 ):
+    """Lista las publicaciones de la cuenta y las antiguas que puede reclamar."""
     # Combina publicaciones propias y antiguas sin dueño cuyo correo coincide.
     products = product_service.list_by_owner(user.id)
     announcements = announcement_service.list_by_owner(user.id)
@@ -194,6 +204,7 @@ def claim_legacy_publication(
     product_service: ProductService = Depends(get_product_service),
     announcement_service: AnnouncementService = Depends(get_announcement_service),
 ):
+    """Vincula una publicación antigua a la cuenta tras validar su PIN."""
     if data.kind == "product":
         product_service.claim(
             data.publication_id,

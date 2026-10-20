@@ -12,6 +12,8 @@ if TYPE_CHECKING:
 
 
 class ProductImage(Base, UUIDMixin, TimestampMixin):
+    """Metadatos de una imagen de producto; el archivo vive en Supabase Storage."""
+
     __tablename__ = "product_images"
     __table_args__ = (
         CheckConstraint("size_bytes > 0", name="ck_product_images_size_positive"),

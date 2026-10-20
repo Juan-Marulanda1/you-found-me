@@ -8,6 +8,8 @@ from urllib.request import Request, urlopen
 
 
 class SupabaseStorageError(Exception):
+    """Fallo del proveedor; not_found distingue objetos inexistentes."""
+
     def __init__(self, *, not_found: bool = False):
         self.not_found = not_found
         super().__init__("Supabase Storage request failed.")
@@ -15,11 +17,15 @@ class SupabaseStorageError(Exception):
 
 @dataclass(frozen=True)
 class SignedUpload:
+    """Token y URL temporales para subir un único objeto."""
+
     token: str
     url: str
 
 
 class SupabaseStorage:
+    """Cliente mínimo de la API REST de Storage para un bucket."""
+
     def __init__(self, project_url: str, api_key: str, bucket: str):
         self.project_url = project_url.rstrip("/")
         self.api_key = api_key
@@ -30,6 +36,7 @@ class SupabaseStorage:
         return bool(self.project_url and self.api_key)
 
     def create_signed_upload(self, path: str) -> SignedUpload:
+        """Pide a Storage una URL firmada para subir el objeto en path."""
         response = self._request(
             "POST",
             f"/object/upload/sign/{self._bucket_path(path)}",
@@ -45,12 +52,14 @@ class SupabaseStorage:
         return SignedUpload(token=token, url=signed_url)
 
     def get_object_info(self, path: str) -> dict:
+        """Consulta tamaño y tipo reales del objeto almacenado."""
         response = self._request("GET", f"/object/info/{self._bucket_path(path)}")
         if not isinstance(response, dict):
             raise SupabaseStorageError()
         return response
 
     def remove(self, paths: list[str]) -> None:
+        """Borra uno o varios objetos del bucket."""
         if not paths:
             return
         self._request(
@@ -60,6 +69,7 @@ class SupabaseStorage:
         )
 
     def public_url(self, path: str) -> str:
+        """URL pública de lectura; requiere que el bucket sea público."""
         return (
             f"{self.api_url}/object/public/"
             f"{quote(self.bucket, safe='')}/{quote(path, safe='/')}"
@@ -73,6 +83,7 @@ class SupabaseStorage:
         return f"{quote(self.bucket, safe='')}/{quote(path, safe='/')}"
 
     def _request(self, method: str, path: str, payload: dict | None = None) -> dict:
+        """Ejecuta la solicitud HTTP y decodifica la respuesta JSON."""
         if not self.configured:
             raise SupabaseStorageError()
 

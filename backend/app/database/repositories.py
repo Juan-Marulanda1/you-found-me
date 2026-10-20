@@ -18,6 +18,7 @@ class SQLAlchemyPublicationRepository[Entity: Base]:
         self.model = model
 
     def create(self, publication: Entity) -> Entity:
+        """Guarda la publicación y crea el registro del dueño si aún no existe."""
         owner_id = getattr(publication, "owner_id", None)
         if owner_id is not None and self.db.get(PublicationOwner, owner_id) is None:
             self.db.add(PublicationOwner(id=owner_id))
@@ -32,11 +33,13 @@ class SQLAlchemyPublicationRepository[Entity: Base]:
         return publication
 
     def get_by_id(self, publication_id: UUID) -> Entity | None:
+        """Busca una publicación por id sin filtrar por estado."""
         return self.db.scalar(
             select(self.model).where(self.model.id == publication_id)  # type: ignore[attr-defined]
         )
 
     def list_by_owner(self, owner_id: UUID) -> list[Entity]:
+        """Lista las publicaciones de una cuenta, de la más reciente a la antigua."""
         return list(
             self.db.scalars(
                 select(self.model)
@@ -46,6 +49,7 @@ class SQLAlchemyPublicationRepository[Entity: Base]:
         )
 
     def list_claimable_by_email(self, email: str) -> list[Entity]:
+        """Lista publicaciones sin dueño cuyo correo de contacto coincide."""
         return list(
             self.db.scalars(
                 select(self.model)
@@ -58,6 +62,7 @@ class SQLAlchemyPublicationRepository[Entity: Base]:
         )
 
     def assign_owner(self, publication_id: UUID, owner_id: UUID) -> Entity | None:
+        """Asigna el dueño si la publicación sigue sin reclamar; devuelve None si no."""
         publication = self.get_by_id(publication_id)
         if publication is None:
             return None
@@ -97,6 +102,7 @@ class SQLAlchemyPublicationRepository[Entity: Base]:
         min_price: Decimal | None = None,
         max_price: Decimal | None = None,
     ) -> PageResult[Entity]:
+        """Aplica filtros opcionales, cuenta el total y devuelve la página pedida."""
         statement = select(self.model)
         filters: list[Any] = []
         if city:
@@ -135,6 +141,7 @@ class SQLAlchemyPublicationRepository[Entity: Base]:
         return PageResult(items=items, total=total)
 
     def update(self, publication: Entity) -> Entity:
+        """Confirma los cambios ya aplicados sobre la entidad."""
         try:
             self.db.commit()
             self.db.refresh(publication)
@@ -144,6 +151,7 @@ class SQLAlchemyPublicationRepository[Entity: Base]:
         return publication
 
     def delete(self, publication: Entity) -> None:
+        """Borra la publicación; las imágenes se eliminan en cascada."""
         self.db.delete(publication)
         try:
             self.db.commit()

@@ -11,6 +11,8 @@ from .image_model import ProductImage
 
 
 class Product(Base, UUIDMixin, TimestampMixin, PublicationContactMixin):
+    """Producto a la venta; los datos de contacto vienen de PublicationContactMixin."""
+
     __tablename__ = "products"
     __table_args__ = (
         CheckConstraint(

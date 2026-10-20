@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 
 class UUIDMixin:
-    """Primary key UUID generado por PostgreSQL."""
+    """Clave primaria UUID generada por PostgreSQL."""
 
     id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
@@ -17,7 +17,7 @@ class UUIDMixin:
 
 
 class TimestampMixin:
-    """Campos de auditoría."""
+    """Fechas de creación y última actualización gestionadas por la base."""
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -44,7 +44,9 @@ class PublicationContactMixin:
     contact_email: Mapped[str | None] = mapped_column(String(254), nullable=True)
     city: Mapped[str] = mapped_column(String(100), nullable=False)
     address: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # PIN heredado: solo existe en publicaciones creadas antes de las cuentas.
     admin_pin_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # NULL indica una publicación antigua aún no reclamada por una cuenta.
     owner_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("publication_owners.id", ondelete="SET NULL"),

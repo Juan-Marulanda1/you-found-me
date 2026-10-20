@@ -16,6 +16,7 @@ class PageData[T](BaseModel):
 def build_page[T](
     items: list[T], *, page: int, page_size: int, total: int
 ) -> PageData[T]:
+    """Calcula el total de páginas y arma la respuesta paginada."""
     return PageData[T](
         items=items,
         page=page,

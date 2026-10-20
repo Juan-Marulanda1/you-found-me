@@ -9,6 +9,8 @@ from .image_model import AnnouncementImage
 
 
 class Announcement(Base, UUIDMixin, TimestampMixin, PublicationContactMixin):
+    """Aviso de un negocio o servicio; comparte contacto y propiedad con Product."""
+
     __tablename__ = "announcements"
     __table_args__ = (
         CheckConstraint(
