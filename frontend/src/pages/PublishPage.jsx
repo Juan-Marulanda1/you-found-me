@@ -61,7 +61,7 @@ export default function PublishPage() {
 
     try {
       const created = await createPublication(kind, body);
-      try { rememberPublication(kind, created.id, created); } catch { /* Local previews are optional. */ }
+      try { rememberPublication(kind, created.id, created); } catch { /* La vista previa local es opcional. */ }
 
       const failures = [];
       for (const file of files) {

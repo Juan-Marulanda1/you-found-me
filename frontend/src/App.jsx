@@ -9,6 +9,7 @@ import PublishPage from './pages/PublishPage.jsx';
 import { signOut } from './services/auth.js';
 import { supabase } from './services/supabase.js';
 
+// Comparte la sesión de Supabase con las páginas que publican o administran.
 export const AuthContext = createContext({ session: null });
 
 function SiteLayout() {
@@ -43,6 +44,7 @@ export default function App() {
 
   useEffect(() => {
     if (!supabase) return undefined;
+    // Mantiene la navegación sincronizada con la sesión restaurada y sus cambios.
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);

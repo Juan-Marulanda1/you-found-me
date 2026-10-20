@@ -12,6 +12,7 @@ export async function requestMagicLink(email) {
   const { error } = await supabase.auth.signInWithOtp({
     email: email.trim().toLowerCase(),
     options: {
+      // Las cuentas nuevas solo nacen por invitación desde la API.
       shouldCreateUser: false,
       emailRedirectTo: `${window.location.origin}/cuenta`,
     },

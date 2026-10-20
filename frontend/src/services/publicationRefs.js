@@ -1,3 +1,5 @@
+// Referencias locales de compatibilidad para publicaciones antiguas; solo guardan
+// campos públicos de vista previa, nunca PIN ni tokens.
 const STORAGE_KEY = 'you-found-me.publications.v1';
 const PREVIEW_FIELDS = [
   'title', 'description', 'category', 'city', 'business_name', 'contact_name',
@@ -28,7 +30,7 @@ function sanitizePreview(value) {
           };
         }
       } catch {
-        // Ignore malformed local preview URLs.
+        // Omite vistas previas locales con URL malformada.
       }
     }
   }

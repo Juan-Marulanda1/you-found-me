@@ -28,7 +28,7 @@ function cacheManagedPublication(kind, id, publication, coverImage) {
       coverImage === undefined ? publication : { ...publication, cover_image: coverImage },
     );
   } catch {
-    // Browser storage is optional for managing this publication.
+    // La referencia local es opcional; la autorización real la valida la API.
   }
 }
 
