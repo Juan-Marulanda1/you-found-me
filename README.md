@@ -49,16 +49,18 @@ Todas las rutas llevan el prefijo `/api/v1` y las respuestas usan `{ "success", 
 | --- | --- | --- |
 | Anuncios | `POST /announcements` | Crear un anuncio de negocio o emprendimiento |
 | Anuncios | `GET /announcements` | Listar con filtros y paginación |
-| Anuncios | `GET /announcements/{id}` | Consultar un anuncio |
+| Anuncios | `GET /announcements/{id}` | Consultar un anuncio activo |
+| Anuncios | `POST /announcements/{id}/manage` | Consultar datos privados y estados no activos con su PIN |
 | Anuncios | `PATCH /announcements/{id}` | Editar con su PIN |
 | Anuncios | `DELETE /announcements/{id}` | Borrar con su PIN |
 | Productos | `POST /products` | Crear un producto |
 | Productos | `GET /products` | Listar con filtros y paginación |
-| Productos | `GET /products/{id}` | Consultar un producto |
+| Productos | `GET /products/{id}` | Consultar un producto activo |
+| Productos | `POST /products/{id}/manage` | Consultar datos privados y estados no activos con su PIN |
 | Productos | `PATCH /products/{id}` | Editar con su PIN |
 | Productos | `DELETE /products/{id}` | Borrar con su PIN |
 
-Los listados aceptan `page` (empieza en 1), `page_size` (1–100, predeterminado 20), `city`, `category`, `status` y `search` (busca en título y descripción; en anuncios también en el nombre del negocio). Los productos aceptan además `min_price` y `max_price`. La respuesta de lista incluye `items`, `page`, `page_size`, `total` y `pages`.
+Los listados públicos muestran solo publicaciones `ACTIVE` y aceptan `page` (empieza en 1), `page_size` (1–100, predeterminado 20), `city`, `category` y `search` (busca en título y descripción; en anuncios también en el nombre del negocio). Los productos aceptan además `min_price` y `max_price`. La respuesta de lista incluye `items`, `page`, `page_size`, `total` y `pages`. No se pueden filtrar publicaciones pausadas o cerradas desde las rutas públicas.
 
 ### Crear un anuncio
 
@@ -71,6 +73,7 @@ Los listados aceptan `page` (empieza en 1), `page_size` (1–100, predeterminado
   "business_name": "Horno Andino",
   "contact_name": "Ana Pérez",
   "contact_phone": "3001234567",
+  "contact_phone_public": false,
   "contact_email": "hola@horno.example",
   "city": "Medellín",
   "address": "Laureles"
@@ -90,6 +93,7 @@ Los listados aceptan `page` (empieza en 1), `page_size` (1–100, predeterminado
   "quantity": 1,
   "contact_name": "Ana Pérez",
   "contact_phone": "3001234567",
+  "contact_phone_public": false,
   "city": "Medellín"
 }
 ```
@@ -110,13 +114,15 @@ Después de cinco PIN incorrectos para la misma publicación desde la misma dire
 { "admin_pin": "482931" }
 ```
 
-Los estados de anuncios son `ACTIVE`, `PAUSED` y `CLOSED`; en productos son `ACTIVE`, `SOLD` y `CLOSED`. Las respuestas públicas nunca incluyen el hash del PIN.
+Los estados de anuncios son `ACTIVE`, `PAUSED` y `CLOSED`; en productos son `ACTIVE`, `SOLD` y `CLOSED`. Las respuestas públicas no incluyen correo ni dirección exacta. El teléfono se devuelve solo si al crear o editar se envió `contact_phone_public: true`; por defecto queda privado. Las respuestas públicas nunca incluyen el hash del PIN.
 
 ### Sección “Tus publicaciones”
 
-El PIN es individual para cada anuncio o producto. Para una interfaz sencilla sin cuentas, el frontend puede guardar en `localStorage` pares `{ "kind": "product", "id": "..." }` o `{ "kind": "announcement", "id": "..." }` al recibir una creación exitosa. La sección carga cada elemento con su ruta `GET`, y solicita el PIN al editar o borrar. No guardes el PIN en el navegador. Esta lista solo existe en ese navegador; no recupera publicaciones en otro dispositivo ni después de borrar los datos locales.
+El PIN es individual para cada anuncio o producto. Para una interfaz sencilla sin cuentas, el frontend puede guardar en `localStorage` pares `{ "kind": "product", "id": "..." }` o `{ "kind": "announcement", "id": "..." }` al recibir una creación exitosa. La sección solicita el PIN y lo envía a `POST /{id}/manage` para ver datos privados y publicaciones no activas. No guardes el PIN en el navegador. Esta lista solo existe en ese navegador; no recupera publicaciones en otro dispositivo ni después de borrar los datos locales.
 
-La API devuelve los campos de contacto en consultas públicas. Antes de publicar en producción, define qué datos deben mostrarse y cuáles deben reservarse para contacto privado.
+El servidor usa `request.client.host` después de que Uvicorn valide los encabezados del proxy. Ejecuta `uv run task start` en producción para que la configuración de la aplicación se aplique a Uvicorn; en un contenedor configura también `HOST=0.0.0.0`. Configura `FORWARDED_ALLOW_IPS` en el entorno de ejecución con las IP/CIDR exactas de los proxies confiables. No uses `*` en producción: la aplicación rechaza ese valor porque permitiría falsificar `X-Forwarded-For` si el backend fuera accesible fuera del proxy. Si el proxy cambia o escala, actualiza esa lista en el despliegue.
+
+La migración de Marketplace transforma los PIN almacenados anteriormente en texto y no permite restaurar el esquema previo. Pruébala primero contra una base PostgreSQL desechable con datos de la revisión `1b159c348e7e`; la prueba de integración se activa con `MIGRATION_TEST_DATABASE_URL` y solo acepta una base PostgreSQL local cuyo nombre incluya `test`.
 
 ## Desarrollo
 
@@ -130,3 +136,5 @@ uv run task test
 ```
 
 Las migraciones se ejecutan con `uv run alembic upgrade head`. Alembic carga todos los modelos registrados para que la autogeneración compare el esquema completo.
+
+La prueba de migración de integración necesita una base PostgreSQL descartable local. Define `MIGRATION_TEST_DATABASE_URL` con una base cuyo nombre incluya `test` (por ejemplo `you_found_me_test`); la prueba crea y elimina un esquema temporal aislado y rechaza hosts remotos para evitar tocar Supabase o producción.
