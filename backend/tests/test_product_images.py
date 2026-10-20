@@ -33,9 +33,6 @@ class InMemoryProductImageRepository:
     def __init__(self):
         self.images: dict = {}
 
-    def count_for_product(self, product_id):
-        return sum(image.product_id == product_id for image in self.images.values())
-
     def list_for_publication(self, product_id, *, ready_only=False):
         images = [
             image

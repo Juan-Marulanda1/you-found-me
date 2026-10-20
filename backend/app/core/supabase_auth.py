@@ -19,11 +19,14 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class AuthenticatedUser:
+    """Identidad verificada por Supabase Auth para la solicitud actual."""
+
     id: UUID
     email: str
 
 
 def _auth_url(path: str) -> str:
+    """Construye la URL de Supabase Auth o responde 503 si no está configurado."""
     base_url = settings.SUPABASE_URL.rstrip("/")
     if not base_url:
         raise HTTPException(
@@ -34,6 +37,7 @@ def _auth_url(path: str) -> str:
 
 
 def get_authenticated_user(access_token: str) -> AuthenticatedUser:
+    """Valida el token con Supabase Auth y exige un correo confirmado y no anónimo."""
     publishable_key = settings.SUPABASE_PUBLISHABLE_KEY.get_secret_value()
     if not publishable_key:
         raise HTTPException(
@@ -98,6 +102,7 @@ def require_authenticated_user(
     authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ) -> AuthenticatedUser:
+    """Dependencia para rutas privadas: sesión válida y correo invitado."""
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -137,13 +142,15 @@ def optional_authenticated_user(
     authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ) -> AuthenticatedUser | None:
+    """Igual que require_authenticated_user, pero admite solicitudes sin sesión."""
     if authorization is None:
         return None
     return require_authenticated_user(authorization, db)
 
 
 def invite_account(email: str) -> None:
-    admin_key = settings.supabase_storage_admin_key
+    """Pide a Supabase Auth el correo de invitación y traduce sus errores a HTTP."""
+    admin_key = settings.supabase_admin_key
     if not admin_key:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

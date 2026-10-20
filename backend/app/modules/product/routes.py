@@ -48,6 +48,7 @@ def create_product(
     user: AuthenticatedUser = Depends(require_authenticated_user),
     service: ProductService = Depends(get_product_service),
 ):
+    """Crea un producto asociado a la cuenta autenticada."""
     return DataResponse[ProductResponse](
         message="Product created successfully.", data=service.create(data, user.id)
     )
@@ -65,6 +66,7 @@ def list_products(
     service: ProductService = Depends(get_product_service),
     image_service: ProductImageService = Depends(get_product_image_service),
 ):
+    """Lista productos activos con filtros y paginación; ruta pública."""
     if min_price is not None and max_price is not None and min_price > max_price:
         raise HTTPException(
             status_code=422, detail="min_price cannot be greater than max_price"
@@ -85,13 +87,7 @@ def list_products(
     )
     items = [
         ProductResponse.model_validate(product).model_copy(
-            update={
-                "cover_image": (
-                    ProductImageResponse.model_validate(cover_images[product.id])
-                    if product.id in cover_images
-                    else None
-                )
-            }
+            update={"cover_image": cover_images.get(product.id)}
         )
         for product in result.items
     ]
@@ -107,9 +103,9 @@ def get_product(
     service: ProductService = Depends(get_product_service),
     image_service: ProductImageService = Depends(get_product_image_service),
 ):
+    """Devuelve un producto activo con su imagen de portada."""
     product = service.get_public_by_id(product_id)
-    cover = image_service.list_cover_images([product.id]).get(product.id)
-    cover_image = ProductImageResponse.model_validate(cover) if cover else None
+    cover_image = image_service.list_cover_images([product.id]).get(product.id)
     return DataResponse[ProductResponse](
         message="Product retrieved successfully.",
         data=ProductResponse.model_validate(product).model_copy(
@@ -129,6 +125,7 @@ def get_product_for_management(
     user: AuthenticatedUser | None = Depends(optional_authenticated_user),
     service: ProductService = Depends(get_product_service),
 ):
+    """Devuelve los datos privados del producto al dueño o con el PIN heredado."""
     return DataResponse[ProductManagementResponse](
         message="Product management access granted.",
         data=service.get_for_management(
@@ -148,6 +145,7 @@ def update_product(
     user: AuthenticatedUser | None = Depends(optional_authenticated_user),
     service: ProductService = Depends(get_product_service),
 ):
+    """Actualiza campos, estado o PIN de un producto autorizado."""
     return DataResponse[ProductManagementResponse](
         message="Product updated successfully.",
         data=service.update(
@@ -170,11 +168,12 @@ def delete_product(
     service: ProductService = Depends(get_product_service),
     image_service: ProductImageService = Depends(get_product_image_service),
 ):
+    """Borra el producto, primero sus archivos en Storage y luego el registro."""
     service.delete(
         product_id,
         data.admin_pin,
         get_client_ip(request),
-        before_delete=image_service.remove_product_files,
+        before_delete=image_service.remove_publication_files,
         owner_id=user.id if user else None,
     )
     return DataResponse[None](message="Product deleted successfully.")
@@ -193,6 +192,7 @@ def create_product_image_upload(
     product_service: ProductService = Depends(get_product_service),
     image_service: ProductImageService = Depends(get_product_image_service),
 ):
+    """Registra una imagen pendiente y entrega la URL firmada de carga."""
     product = product_service.get_for_management(
         product_id, data.admin_pin, get_client_ip(request), user.id if user else None
     )
@@ -215,6 +215,7 @@ def complete_product_image_upload(
     product_service: ProductService = Depends(get_product_service),
     image_service: ProductImageService = Depends(get_product_image_service),
 ):
+    """Verifica el archivo subido a Storage y marca la imagen como lista."""
     product_service.get_for_management(
         product_id, data.admin_pin, get_client_ip(request), user.id if user else None
     )
@@ -233,6 +234,7 @@ def list_product_images(
     product_service: ProductService = Depends(get_product_service),
     image_service: ProductImageService = Depends(get_product_image_service),
 ):
+    """Lista las imágenes confirmadas de un producto activo."""
     product_service.get_public_by_id(product_id)
     return DataResponse[list[ProductImageResponse]](
         message="Product images retrieved successfully.",
@@ -246,12 +248,13 @@ def list_product_images(
 )
 def list_product_images_for_management(
     product_id: UUID,
-    data: ProductImageCompleteRequest,
+    data: ProductManageRequest,
     request: Request,
     user: AuthenticatedUser | None = Depends(optional_authenticated_user),
     product_service: ProductService = Depends(get_product_service),
     image_service: ProductImageService = Depends(get_product_image_service),
 ):
+    """Lista todas las imágenes del producto, incluidas las pendientes."""
     product_service.get_for_management(
         product_id, data.admin_pin, get_client_ip(request), user.id if user else None
     )
@@ -274,6 +277,7 @@ def delete_product_image(
     product_service: ProductService = Depends(get_product_service),
     image_service: ProductImageService = Depends(get_product_image_service),
 ):
+    """Borra una imagen del producto en Storage y en la base de datos."""
     product_service.get_for_management(
         product_id, data.admin_pin, get_client_ip(request), user.id if user else None
     )

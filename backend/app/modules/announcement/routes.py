@@ -47,6 +47,7 @@ def create_announcement(
     user: AuthenticatedUser = Depends(require_authenticated_user),
     service: AnnouncementService = Depends(get_announcement_service),
 ):
+    """Crea un aviso asociado a la cuenta autenticada."""
     return DataResponse[AnnouncementResponse](
         message="Announcement created successfully.",
         data=service.create(data, user.id),
@@ -63,6 +64,7 @@ def list_announcements(
     service: AnnouncementService = Depends(get_announcement_service),
     image_service: AnnouncementImageService = Depends(get_announcement_image_service),
 ):
+    """Lista avisos activos con filtros y paginación; ruta pública."""
     result = service.list(
         page=page,
         page_size=page_size,
@@ -76,15 +78,7 @@ def list_announcements(
     )
     items = [
         AnnouncementResponse.model_validate(announcement).model_copy(
-            update={
-                "cover_image": (
-                    AnnouncementImageResponse.model_validate(
-                        cover_images[announcement.id]
-                    )
-                    if announcement.id in cover_images
-                    else None
-                )
-            }
+            update={"cover_image": cover_images.get(announcement.id)}
         )
         for announcement in result.items
     ]
@@ -100,9 +94,11 @@ def get_announcement(
     service: AnnouncementService = Depends(get_announcement_service),
     image_service: AnnouncementImageService = Depends(get_announcement_image_service),
 ):
+    """Devuelve un aviso activo con su imagen de portada."""
     announcement = service.get_public_by_id(announcement_id)
-    cover = image_service.list_cover_images([announcement.id]).get(announcement.id)
-    cover_image = AnnouncementImageResponse.model_validate(cover) if cover else None
+    cover_image = image_service.list_cover_images([announcement.id]).get(
+        announcement.id
+    )
     return DataResponse[AnnouncementResponse](
         message="Announcement retrieved successfully.",
         data=AnnouncementResponse.model_validate(announcement).model_copy(
@@ -122,6 +118,7 @@ def get_announcement_for_management(
     user: AuthenticatedUser | None = Depends(optional_authenticated_user),
     service: AnnouncementService = Depends(get_announcement_service),
 ):
+    """Devuelve los datos privados del aviso al dueño o con el PIN heredado."""
     return DataResponse[AnnouncementManagementResponse](
         message="Announcement management access granted.",
         data=service.get_for_management(
@@ -144,6 +141,7 @@ def update_announcement(
     user: AuthenticatedUser | None = Depends(optional_authenticated_user),
     service: AnnouncementService = Depends(get_announcement_service),
 ):
+    """Actualiza campos, estado o PIN de un aviso autorizado."""
     return DataResponse[AnnouncementManagementResponse](
         message="Announcement updated successfully.",
         data=service.update(
@@ -165,11 +163,12 @@ def delete_announcement(
     service: AnnouncementService = Depends(get_announcement_service),
     image_service: AnnouncementImageService = Depends(get_announcement_image_service),
 ):
+    """Borra el aviso, primero sus archivos en Storage y luego el registro."""
     service.delete(
         announcement_id,
         data.admin_pin,
         get_client_ip(request),
-        before_delete=image_service.remove_announcement_files,
+        before_delete=image_service.remove_publication_files,
         owner_id=user.id if user else None,
     )
     return DataResponse[None](message="Announcement deleted successfully.")
@@ -188,6 +187,7 @@ def create_announcement_image_upload(
     service: AnnouncementService = Depends(get_announcement_service),
     image_service: AnnouncementImageService = Depends(get_announcement_image_service),
 ):
+    """Registra una imagen pendiente y entrega la URL firmada de carga."""
     announcement = service.get_for_management(
         announcement_id,
         data.admin_pin,
@@ -213,6 +213,7 @@ def complete_announcement_image_upload(
     service: AnnouncementService = Depends(get_announcement_service),
     image_service: AnnouncementImageService = Depends(get_announcement_image_service),
 ):
+    """Verifica el archivo subido a Storage y marca la imagen como lista."""
     service.get_for_management(
         announcement_id,
         data.admin_pin,
@@ -234,6 +235,7 @@ def list_announcement_images(
     service: AnnouncementService = Depends(get_announcement_service),
     image_service: AnnouncementImageService = Depends(get_announcement_image_service),
 ):
+    """Lista las imágenes confirmadas de un aviso activo."""
     service.get_public_by_id(announcement_id)
     return DataResponse[list[AnnouncementImageResponse]](
         message="Announcement images retrieved successfully.",
@@ -247,12 +249,13 @@ def list_announcement_images(
 )
 def list_announcement_images_for_management(
     announcement_id: UUID,
-    data: AnnouncementImageCompleteRequest,
+    data: AnnouncementManageRequest,
     request: Request,
     user: AuthenticatedUser | None = Depends(optional_authenticated_user),
     service: AnnouncementService = Depends(get_announcement_service),
     image_service: AnnouncementImageService = Depends(get_announcement_image_service),
 ):
+    """Lista todas las imágenes del aviso, incluidas las pendientes."""
     service.get_for_management(
         announcement_id,
         data.admin_pin,
@@ -278,6 +281,7 @@ def delete_announcement_image(
     service: AnnouncementService = Depends(get_announcement_service),
     image_service: AnnouncementImageService = Depends(get_announcement_image_service),
 ):
+    """Borra una imagen del aviso en Storage y en la base de datos."""
     service.get_for_management(
         announcement_id,
         data.admin_pin,

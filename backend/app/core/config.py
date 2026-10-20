@@ -5,6 +5,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    """Configuración leída de variables de entorno y del archivo .env."""
+
     APP_NAME: str = "You Found Me API"
     APP_VERSION: str = "1.0.0"
 
@@ -20,7 +22,7 @@ class Settings(BaseSettings):
 
     API_PREFIX: str = "/api/v1"
 
-    PROJECT_DESCRIPTION: str = "API for product listings and business announcements."
+    PROJECT_DESCRIPTION: str = "API modular para productos y avisos comerciales."
 
     ALLOWED_ORIGINS: list[str] = Field(default_factory=list)
 
@@ -42,6 +44,7 @@ class Settings(BaseSettings):
     @field_validator("FORWARDED_ALLOW_IPS")
     @classmethod
     def validate_forwarded_allow_ips(cls, value: str) -> str:
+        # Un comodín permitiría falsificar X-Forwarded-For y evadir el límite de PIN.
         networks = [network.strip() for network in value.split(",") if network.strip()]
         if "*" in networks:
             raise ValueError("FORWARDED_ALLOW_IPS must not contain '*'.")
@@ -55,7 +58,8 @@ class Settings(BaseSettings):
         return ",".join(networks)
 
     @property
-    def supabase_storage_admin_key(self) -> str:
+    def supabase_admin_key(self) -> str:
+        """Clave administrativa vigente: prioriza la secret nueva sobre service_role."""
         return (
             self.SUPABASE_SECRET_KEY.get_secret_value()
             or self.SUPABASE_SERVICE_ROLE_KEY.get_secret_value()
@@ -67,4 +71,5 @@ class Settings(BaseSettings):
     )
 
 
+# Instancia única importada por el resto de la aplicación.
 settings = Settings()

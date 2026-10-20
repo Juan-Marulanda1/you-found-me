@@ -1,14 +1,11 @@
 from app.modules.publication.image_schemas import (
     PublicationImageCompleteRequest,
-    PublicationImageContentType,
     PublicationImageDeleteRequest,
     PublicationImageManagementResponse,
     PublicationImageResponse,
     PublicationImageUploadRequest,
     PublicationImageUploadResponse,
 )
-
-ProductImageContentType = PublicationImageContentType
 
 
 class ProductImageUploadRequest(PublicationImageUploadRequest):

@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 
@@ -13,20 +13,10 @@ class PublicationImageRepository[ImageModel]:
         self.model = model
         self.owner_field = owner_field
 
-    def count_for_publication(self, publication_id: UUID) -> int:
-        owner_column = getattr(self.model, self.owner_field)
-        return (
-            self.db.scalar(
-                select(func.count())
-                .select_from(self.model)
-                .where(owner_column == publication_id)
-            )
-            or 0
-        )
-
     def list_for_publication(
         self, publication_id: UUID, *, ready_only: bool = False
     ) -> list[ImageModel]:
+        """Lista imágenes por posición; ready_only excluye las pendientes."""
         owner_column = getattr(self.model, self.owner_field)
         statement = select(self.model).where(owner_column == publication_id)
         if ready_only:
@@ -36,6 +26,7 @@ class PublicationImageRepository[ImageModel]:
     def list_cover_images(
         self, publication_ids: Sequence[UUID]
     ) -> dict[UUID, ImageModel]:
+        """Devuelve la primera imagen lista de cada publicación en una sola consulta."""
         if not publication_ids:
             return {}
 
@@ -56,9 +47,11 @@ class PublicationImageRepository[ImageModel]:
         return covers
 
     def get_by_id(self, image_id: UUID) -> ImageModel | None:
+        """Busca una imagen por id."""
         return self.db.scalar(select(self.model).where(self.model.id == image_id))
 
     def create(self, image: ImageModel) -> ImageModel:
+        """Guarda una imagen nueva."""
         self.db.add(image)
         try:
             self.db.commit()
@@ -69,6 +62,7 @@ class PublicationImageRepository[ImageModel]:
         return image
 
     def update(self, image: ImageModel) -> ImageModel:
+        """Confirma los cambios ya aplicados sobre la imagen."""
         try:
             self.db.commit()
             self.db.refresh(image)
@@ -78,18 +72,8 @@ class PublicationImageRepository[ImageModel]:
         return image
 
     def delete(self, image: ImageModel) -> None:
+        """Borra el registro de la imagen."""
         self.db.delete(image)
-        try:
-            self.db.commit()
-        except Exception:
-            self.db.rollback()
-            raise
-
-    def delete_for_publication(self, publication_id: UUID) -> None:
-        owner_column = getattr(self.model, self.owner_field)
-        self.db.query(self.model).filter(owner_column == publication_id).delete(
-            synchronize_session=False
-        )
         try:
             self.db.commit()
         except Exception:

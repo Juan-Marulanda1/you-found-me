@@ -10,13 +10,12 @@ from .service import AnnouncementService
 
 
 def get_announcement_service(db: Session = Depends(get_db)) -> AnnouncementService:
+    """Construye el servicio con un repositorio ligado a la sesión de la solicitud."""
     return AnnouncementService(AnnouncementRepository(db))
 
 
 def get_announcement_image_service(
     db: Session = Depends(get_db),
 ) -> AnnouncementImageService:
+    """Construye el servicio de imágenes con la configuración de Storage."""
     return build_announcement_image_service(AnnouncementImageRepository(db))
-
-
-get_service = get_announcement_service

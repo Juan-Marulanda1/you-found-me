@@ -45,16 +45,14 @@ class ProductImageService(PublicationImageService[ProductImage]):
             management_response_model=ProductImageManagementResponse,
         )
 
-    def remove_product_files(self, product_id):
-        self.remove_publication_files(product_id)
-
 
 def build_product_image_service(
     repository: ProductImageRepository,
 ) -> ProductImageService:
+    """Crea el adaptador de Storage y el servicio con los límites configurados."""
     storage = SupabaseStorage(
         project_url=settings.SUPABASE_URL,
-        api_key=settings.supabase_storage_admin_key,
+        api_key=settings.supabase_admin_key,
         bucket=settings.SUPABASE_PRODUCT_IMAGES_BUCKET,
     )
     return ProductImageService(

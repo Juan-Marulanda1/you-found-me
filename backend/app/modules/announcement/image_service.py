@@ -45,16 +45,14 @@ class AnnouncementImageService(PublicationImageService[AnnouncementImage]):
             management_response_model=AnnouncementImageManagementResponse,
         )
 
-    def remove_announcement_files(self, announcement_id):
-        self.remove_publication_files(announcement_id)
-
 
 def build_announcement_image_service(
     repository: AnnouncementImageRepository,
 ) -> AnnouncementImageService:
+    """Crea el adaptador de Storage y el servicio con los límites configurados."""
     storage = SupabaseStorage(
         project_url=settings.SUPABASE_URL,
-        api_key=settings.supabase_storage_admin_key,
+        api_key=settings.supabase_admin_key,
         bucket=settings.SUPABASE_PRODUCT_IMAGES_BUCKET,
     )
     return AnnouncementImageService(
