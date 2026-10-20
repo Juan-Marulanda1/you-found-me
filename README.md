@@ -54,8 +54,8 @@ Todas las rutas llevan el prefijo `/api/v1` y las respuestas usan `{ "success", 
 | Anuncios | `PATCH /announcements/{id}` | Editar con su PIN |
 | Anuncios | `DELETE /announcements/{id}` | Borrar con su PIN |
 | Productos | `POST /products` | Crear un producto |
-| Productos | `GET /products` | Listar con filtros y paginación |
-| Productos | `GET /products/{id}` | Consultar un producto activo |
+| Productos | `GET /products` | Listar con filtros, paginación e imagen principal |
+| Productos | `GET /products/{id}` | Consultar un producto activo con su imagen principal |
 | Productos | `POST /products/{id}/manage` | Consultar datos privados y estados no activos con su PIN |
 | Productos | `PATCH /products/{id}` | Editar con su PIN |
 | Productos | `DELETE /products/{id}` | Borrar con su PIN |
@@ -65,7 +65,7 @@ Todas las rutas llevan el prefijo `/api/v1` y las respuestas usan `{ "success", 
 | Imágenes de productos | `POST /products/{id}/images/manage` | Listar imágenes, incluidas pendientes, con PIN |
 | Imágenes de productos | `DELETE /products/{id}/images/{image_id}` | Borrar o cancelar una imagen con PIN |
 
-Los listados públicos muestran solo publicaciones `ACTIVE` y aceptan `page` (empieza en 1), `page_size` (1–100, predeterminado 20), `city`, `category` y `search` (busca en título y descripción; en anuncios también en el nombre del negocio). Los productos aceptan además `min_price` y `max_price`. La respuesta de lista incluye `items`, `page`, `page_size`, `total` y `pages`. No se pueden filtrar publicaciones pausadas o cerradas desde las rutas públicas.
+Los listados públicos muestran solo publicaciones `ACTIVE` y aceptan `page` (empieza en 1), `page_size` (1–100, predeterminado 20), `city`, `category` y `search` (busca en título y descripción; en anuncios también en el nombre del negocio). Los productos aceptan además `min_price` y `max_price`. La respuesta de lista incluye `items`, `page`, `page_size`, `total` y `pages`. Cada producto incluye `cover_image`: la primera imagen confirmada o `null`. El catálogo obtiene las portadas con una sola consulta adicional por página y evita solicitudes por cada tarjeta. No se pueden filtrar publicaciones pausadas o cerradas desde las rutas públicas.
 
 ### Crear un anuncio
 

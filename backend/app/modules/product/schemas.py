@@ -11,6 +11,7 @@ from app.modules.publication.schemas import (
 )
 
 from .enums import ProductStatus
+from .image_schemas import ProductImageResponse
 
 
 class ProductCreate(PublicationCreateSchema):
@@ -63,6 +64,7 @@ class ProductResponse(BaseModel):
     contact_name: str
     contact_phone: str | None = Field(validation_alias="public_contact_phone")
     city: str
+    cover_image: ProductImageResponse | None = None
     created_at: datetime
     updated_at: datetime
 

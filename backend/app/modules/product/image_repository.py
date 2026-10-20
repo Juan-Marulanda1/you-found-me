@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -27,6 +28,30 @@ class ProductImageRepository:
         if ready_only:
             statement = statement.where(ProductImage.status == "READY")
         return list(self.db.scalars(statement.order_by(ProductImage.position)))
+
+    def list_cover_images(
+        self, product_ids: Sequence[UUID]
+    ) -> dict[UUID, ProductImage]:
+        if not product_ids:
+            return {}
+
+        statement = (
+            select(ProductImage)
+            .where(
+                ProductImage.product_id.in_(product_ids),
+                ProductImage.status == "READY",
+            )
+            .order_by(
+                ProductImage.product_id,
+                ProductImage.position,
+                ProductImage.created_at,
+                ProductImage.id,
+            )
+        )
+        covers: dict[UUID, ProductImage] = {}
+        for image in self.db.scalars(statement):
+            covers.setdefault(image.product_id, image)
+        return covers
 
     def get_by_id(self, image_id: UUID) -> ProductImage | None:
         return self.db.scalar(select(ProductImage).where(ProductImage.id == image_id))

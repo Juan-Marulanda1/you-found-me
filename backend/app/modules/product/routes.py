@@ -51,6 +51,7 @@ def list_products(
     min_price: Decimal | None = Query(default=None, gt=0),
     max_price: Decimal | None = Query(default=None, gt=0),
     service: ProductService = Depends(get_product_service),
+    image_service: ProductImageService = Depends(get_product_image_service),
 ):
     if min_price is not None and max_price is not None and min_price > max_price:
         raise HTTPException(
@@ -67,11 +68,18 @@ def list_products(
         min_price=min_price,
         max_price=max_price,
     )
+    cover_images = image_service.list_cover_images(
+        [product.id for product in result.items]
+    )
+    items = [
+        ProductResponse.model_validate(product).model_copy(
+            update={"cover_image": cover_images.get(product.id)}
+        )
+        for product in result.items
+    ]
     return DataResponse[PageData[ProductResponse]](
         message="Products retrieved successfully.",
-        data=build_page(
-            result.items, page=page, page_size=page_size, total=result.total
-        ),
+        data=build_page(items, page=page, page_size=page_size, total=result.total),
     )
 
 
@@ -79,10 +87,15 @@ def list_products(
 def get_product(
     product_id: UUID,
     service: ProductService = Depends(get_product_service),
+    image_service: ProductImageService = Depends(get_product_image_service),
 ):
+    product = service.get_public_by_id(product_id)
+    cover_image = image_service.list_cover_images([product.id]).get(product.id)
     return DataResponse[ProductResponse](
         message="Product retrieved successfully.",
-        data=service.get_public_by_id(product_id),
+        data=ProductResponse.model_validate(product).model_copy(
+            update={"cover_image": cover_image}
+        ),
     )
 
 

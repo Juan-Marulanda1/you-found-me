@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Sequence
 from uuid import UUID, uuid4
 
 from app.core.config import settings
@@ -136,6 +137,18 @@ class ProductImageService:
             self._as_response(image)
             for image in self.repository.list_for_product(product_id, ready_only=True)
         ]
+
+    def list_cover_images(
+        self, product_ids: Sequence[UUID]
+    ) -> dict[UUID, ProductImageResponse]:
+        if not self.storage.project_url:
+            return {}
+        return {
+            product_id: self._as_response(image)
+            for product_id, image in self.repository.list_cover_images(
+                product_ids
+            ).items()
+        }
 
     def list_management(self, product_id: UUID) -> list[ProductImageManagementResponse]:
         return [
