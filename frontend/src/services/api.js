@@ -1,6 +1,7 @@
 import { getAccessToken } from './auth.js';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1').replace(/\/$/, '');
+// La API responde en inglés; aquí se traducen los mensajes que se muestran al usuario.
 const MESSAGE_TRANSLATIONS = {
   'Sign in with a verified account to continue.': 'Inicia sesión con una cuenta verificada para continuar.',
   'Confirm your email before managing publications.': 'Confirma tu correo antes de administrar publicaciones.',
@@ -38,6 +39,7 @@ export class ApiError extends Error {
 export async function request(path, { body, headers = {}, ...options } = {}) {
   let response;
   try {
+    // Centraliza el token para que las páginas no tengan que gestionar encabezados de sesión.
     const accessToken = await getAccessToken();
     response = await fetch(`${API_BASE_URL}${path}`, {
       ...options,
@@ -60,17 +62,10 @@ export async function request(path, { body, headers = {}, ...options } = {}) {
   }
 
   if (!response.ok || payload.success === false) {
+    // Traduce mensajes conocidos de la API y conserva los desconocidos para facilitar el diagnóstico.
     const message = payload.message || 'No pudimos completar la solicitud.';
     throw new ApiError(MESSAGE_TRANSLATIONS[message] || message, response.status);
   }
 
   return payload.data;
-}
-
-export function publicationHeaders(key) {
-  return { 'X-Publication-Key': key };
-}
-
-export function getApiBaseUrl() {
-  return API_BASE_URL;
 }

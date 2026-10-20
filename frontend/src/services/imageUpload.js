@@ -1,5 +1,7 @@
 import { completePublicationImageUpload, createPublicationImageUpload } from './publications.js';
 import { isImageStorageConfigured, supabase } from './supabase.js';
+
+// Validación temprana para evitar cargas que la API rechazaría; el backend aplica los límites reales.
 const ACCEPTED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const MAX_BYTES = 5 * 1024 * 1024;
 
@@ -20,6 +22,7 @@ export async function uploadPublicationImage(kind, publicationId, file, adminPin
     size_bytes: file.size,
     alt_text: altText || file.name.replace(/\.[^.]+$/, ''),
   });
+  // El navegador sube directamente a Storage; la API solo autoriza y confirma la carga.
   const { error } = await supabase.storage
     .from(upload.bucket)
     .uploadToSignedUrl(upload.path, upload.token, file, {
@@ -30,7 +33,3 @@ export async function uploadPublicationImage(kind, publicationId, file, adminPin
   if (error) throw new Error('Supabase no pudo subir la imagen. Inténtalo de nuevo.');
   return completePublicationImageUpload(kind, publicationId, upload.id, adminPin);
 }
-
-export const uploadProductImage = (productId, file, adminPin, altText = '') => (
-  uploadPublicationImage('product', productId, file, adminPin, altText)
-);

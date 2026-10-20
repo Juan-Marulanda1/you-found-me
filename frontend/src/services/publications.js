@@ -1,10 +1,12 @@
 import { request } from './api.js';
 
+// Único lugar que conoce las rutas de cada tipo de publicación; las páginas solo usan kind.
 const endpoints = {
   product: '/products',
   announcement: '/announcements',
 };
 
+// Omite filtros vacíos: la API los rechazaría o los aplicaría como búsqueda.
 export function listPublications(kind, filters = {}) {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) {
@@ -20,6 +22,7 @@ export const getPublication = (kind, id) => request(`${endpoints[kind]}/${id}`);
 export const createPublication = (kind, body) => request(endpoints[kind], {
   method: 'POST', body,
 });
+// La clave de invitación viaja solo en este encabezado y no se persiste en el navegador.
 export const requestAccountInvitation = (email, key) => request('/account-access/invite', {
   method: 'POST', body: { email }, headers: { 'X-Publication-Key': key },
 });
@@ -62,13 +65,3 @@ export const deletePublicationImage = (kind, id, imageId, adminPin) => request(
     method: 'DELETE', body: adminPin ? { admin_pin: adminPin } : {},
   },
 );
-
-export const listProductImages = (id) => listPublicationImages('product', id);
-export const listProductImagesForManagement = (id, adminPin) => listPublicationImagesForManagement('product', id, adminPin);
-export const createProductImageUpload = (id, body) => createPublicationImageUpload('product', id, body);
-export const completeProductImageUpload = (id, imageId, adminPin) => completePublicationImageUpload('product', id, imageId, adminPin);
-export const deleteProductImage = (id, imageId, adminPin) => deletePublicationImage('product', id, imageId, adminPin);
-
-export function endpointFor(kind) {
-  return endpoints[kind];
-}

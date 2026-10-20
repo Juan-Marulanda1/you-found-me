@@ -11,7 +11,3 @@ export function formatDate(date) {
 export function kindLabel(kind) {
   return kind === 'product' ? 'Producto' : 'Aviso';
 }
-
-export function truncateId(id) {
-  return `${id.slice(0, 8)}…${id.slice(-4)}`;
-}
