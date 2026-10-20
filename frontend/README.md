@@ -1,46 +1,76 @@
-# You Found Me - frontend
+# You Found Me Web
 
-Frontend React + Vite para el catalogo publico de productos y avisos.
+Aplicación React para explorar productos y avisos, crear publicaciones y administrar publicaciones asociadas a una cuenta.
 
-## Iniciar en local
+## Arquitectura
 
-1. Instala Node.js 22.12 o superior.
-2. Desde frontend, ejecuta npm install.
-3. Copia .env.example como .env.local y configura las variables.
-4. Inicia la API y ejecuta npm run dev.
-5. Abre http://localhost:5173.
+~~~text
+frontend/src/
+  App.jsx              Rutas y estado de sesión de Supabase Auth
+  pages/               Pantallas de catálogo, detalle, cuenta, publicación y gestión
+  components/          Elementos visuales reutilizables
+  services/            Cliente HTTP, Auth, Storage y referencias locales
+  utils/               Formato de precios, fechas y etiquetas
+  styles.css           Estilos globales y de componentes
+~~~
 
-Las variables VITE_* son visibles en el navegador. Solo configura la URL de Supabase y su clave publicable. Nunca pongas SUPABASE_SECRET_KEY, SUPABASE_SERVICE_ROLE_KEY ni PUBLICATION_CREATION_KEY en el frontend.
+Las páginas coordinan el estado de pantalla y llaman a los servicios. services/api.js adjunta el token de sesión a la API y normaliza errores; los servicios de publicaciones conocen las rutas HTTP, y imageUpload.js coordina la carga firmada en Supabase Storage. Consulta [docs/flujos.md](docs/flujos.md) para los diagramas de sesión, solicitudes e imágenes.
 
-## Variables
+## Requisitos
+
+- Node.js 22.12 o superior.
+- npm incluido con Node.js.
+- El backend disponible en la URL configurada.
+- Un proyecto Supabase si se usan cuentas o imágenes.
+
+## Instalación local
+
+Desde la raíz del repositorio, copia frontend/.env.example como frontend/.env.local. Luego:
+
+~~~powershell
+cd frontend
+npm ci
+npm run dev
+~~~
+
+Abre http://localhost:5173. Para iniciar la API y PostgreSQL, sigue [backend/README.md](../backend/README.md#instalacion-local).
+
+Para compilar y servir una vista previa local:
+
+~~~powershell
+npm run build
+npm run preview
+~~~
+
+## Variables del frontend
 
 | Variable | Uso |
 | --- | --- |
-| VITE_API_BASE_URL | URL base de FastAPI, incluyendo /api/v1. |
-| VITE_SUPABASE_URL | URL publica de Supabase para Auth y carga de imagenes firmadas. |
-| VITE_SUPABASE_PUBLISHABLE_KEY | Clave publicable para Supabase Auth y Storage. |
+| VITE_API_BASE_URL | URL base de la API, incluyendo /api/v1. |
+| VITE_SUPABASE_URL | URL pública del proyecto Supabase. |
+| VITE_SUPABASE_PUBLISHABLE_KEY | Clave publicable de Supabase Auth y Storage. Puede estar en el frontend. |
+
+Todo valor VITE_* queda incluido en el código descargado por el navegador. Nunca agregues PUBLICATION_CREATION_KEY, SUPABASE_SECRET_KEY ni SUPABASE_SERVICE_ROLE_KEY a este archivo.
 
 ## Cuentas e invitaciones
 
-La ruta /cuenta permite pedir una invitacion o iniciar sesion con un enlace de correo. Para pedir cuenta se necesita PUBLICATION_CREATION_KEY; el frontend la envia una vez a POST /account-access/invite y no la guarda. Supabase Auth envia el enlace. Para iniciar sesion se usa un enlace de correo sin crear cuentas nuevas.
+1. La persona administradora entrega la clave privada de invitación a quien autoriza.
+2. El invitado abre /cuenta, elige Crear cuenta e ingresa su correo y la clave.
+3. La API valida la clave, registra el correo autorizado y pide a Supabase Auth que envíe una invitación.
+4. El invitado abre el enlace de correo y vuelve a /cuenta con la sesión iniciada.
+5. Las publicaciones nuevas se asocian a esa cuenta; Tus publicaciones puede consultarse desde otros dispositivos.
 
-Configura en el backend SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY y SUPABASE_AUTH_REDIRECT_URL. Agrega la URL de redireccion a Authentication > URL Configuration en Supabase. Deshabilita el registro publico si el acceso debe ser solo por invitacion.
+Para volver a entrar se solicita un enlace de acceso desde Iniciar sesión. El PIN solo se necesita para reclamar publicaciones antiguas que aún no tengan dueño asignado. La clave de invitación se comparte con cuidado: quien la tenga puede autorizar solicitudes de invitación. Cambiarla impide solicitudes futuras con el valor anterior, pero no revoca las cuentas ya autorizadas.
 
-La API envia el token de sesion como Authorization: Bearer. Las publicaciones nuevas quedan asociadas a la identidad del usuario. Tus publicaciones consulta el backend, asi que se sincroniza entre dispositivos. Las publicaciones anteriores se pueden reclamar desde una cuenta con correo confirmado y validando cada PIN. Las publicaciones antiguas sin correo coincidente se pueden abrir con una referencia local previa y reclamar con su PIN.
+En Supabase Auth, permite las URL de regreso de desarrollo y producción y configura el envío de correo apropiado para el volumen esperado. Deshabilitar el registro público complementa la lista de invitaciones que aplica la API.
 
-## Estado y siguientes pasos
+## Adaptar esta plantilla
 
-- Catalogo publico de productos y avisos, busqueda y paginacion.
-- Privacidad para correo y direccion exacta; el telefono publico depende del consentimiento.
-- Publicacion y administracion asociadas a una cuenta invitada.
-- Reclamacion de publicaciones existentes con PIN, conservando sus datos y hashes.
-- Imagenes en Supabase Storage con URL firmada.
+1. Actualiza el título y la descripción en index.html, la marca y textos de las páginas, y los estilos en src/styles.css.
+2. Ajusta VITE_API_BASE_URL y las credenciales publicables de Supabase para cada entorno.
+3. Agrega o cambia pantallas en src/pages y componentes reutilizables en src/components.
+4. Agrega las llamadas HTTP en src/services y mantén la lógica de presentación en las páginas.
+5. Si se cambia el dominio del backend, coordina sus rutas y esquemas con la API y actualiza su contrato.
+6. Ejecuta npm run build antes de publicar y configura el hosting para servir index.html también en rutas internas como /cuenta y /mis-publicaciones.
 
-Antes de desplegar, configura los remitentes de correo de Supabase y las URL de redireccion de cada entorno. Valida con datos de prueba que los avisos existentes sigan visibles y se puedan reclamar.
-
-## Estructura
-
-- src/pages: pantallas de catalogo, detalle, cuenta, publicacion y gestion.
-- src/services: cliente HTTP, Auth, endpoints del dominio, Storage y referencias locales.
-- src/components: campos, tarjetas y estados visuales.
-- src/utils: formato de precios, fechas y etiquetas.
+No incluyas claves administrativas ni lógica de autorización secreta en el bundle web. La API es quien decide si la sesión puede publicar o administrar contenido.
