@@ -1,12 +1,13 @@
 from decimal import Decimal
 
 from sqlalchemy import CheckConstraint, Integer, Numeric, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
 from app.database.mixins import PublicationContactMixin, TimestampMixin, UUIDMixin
 
 from .enums import ProductStatus
+from .image_model import ProductImage
 
 
 class Product(Base, UUIDMixin, TimestampMixin, PublicationContactMixin):
@@ -32,4 +33,10 @@ class Product(Base, UUIDMixin, TimestampMixin, PublicationContactMixin):
         String(20),
         nullable=False,
         default=ProductStatus.ACTIVE,
+    )
+    images: Mapped[list[ProductImage]] = relationship(
+        back_populates="product",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="ProductImage.position",
     )

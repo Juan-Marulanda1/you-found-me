@@ -1,6 +1,6 @@
 from ipaddress import ip_network
 
-from pydantic import Field, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,6 +24,14 @@ class Settings(BaseSettings):
 
     ALLOWED_ORIGINS: list[str] = Field(default_factory=list)
 
+    # Keep the Supabase service key on the server only. It is never returned by
+    # an API schema; the browser receives a short-lived signed upload token.
+    SUPABASE_URL: str = ""
+    SUPABASE_SERVICE_ROLE_KEY: SecretStr = SecretStr("")
+    SUPABASE_PRODUCT_IMAGES_BUCKET: str = "product-images"
+    PRODUCT_IMAGE_MAX_BYTES: int = Field(default=5 * 1024 * 1024, gt=0)
+    PRODUCT_IMAGE_MAX_COUNT: int = Field(default=8, gt=0, le=50)
+
     @field_validator("FORWARDED_ALLOW_IPS")
     @classmethod
     def validate_forwarded_allow_ips(cls, value: str) -> str:
@@ -38,6 +46,13 @@ class Settings(BaseSettings):
                 "FORWARDED_ALLOW_IPS must contain IP addresses or CIDR networks."
             ) from error
         return ",".join(networks)
+
+    @property
+    def supabase_storage_configured(self) -> bool:
+        return bool(
+            self.SUPABASE_URL.strip()
+            and self.SUPABASE_SERVICE_ROLE_KEY.get_secret_value()
+        )
 
     model_config = SettingsConfigDict(
         env_file=".env",
