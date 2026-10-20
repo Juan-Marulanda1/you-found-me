@@ -4,7 +4,7 @@ import { AuthContext } from '../App.jsx';
 import Field from '../components/Field.jsx';
 import { Busy, Notice } from '../components/Feedback.jsx';
 import { claimLegacyPublication, deletePublication, deletePublicationImage, getPublicationForManagement, listPublicationImagesForManagement, updatePublication } from '../services/publications.js';
-import { ACCEPTED_IMAGE_TYPES, maxImagesFor, uploadPublicationImage } from '../services/imageUpload.js';
+import { ACCEPTED_IMAGE_TYPES, LOW_RESOLUTION_HINT, findLowResolutionImages, maxImagesFor, uploadPublicationImage } from '../services/imageUpload.js';
 import { forgetPublication, rememberPublication } from '../services/publicationRefs.js';
 import { formatDate, formatPrice, kindLabel, statusLabel, statusOptions } from '../utils/format.js';
 
@@ -162,6 +162,7 @@ export default function ManagePage() {
     if (!files.length) return;
     setBusy(true);
     setError('');
+    const lowResolution = await findLowResolutionImages(files);
     const failures = [];
     for (const file of files) {
       try { await uploadPublicationImage(kind, id, file, pin); }
@@ -179,7 +180,9 @@ export default function ManagePage() {
     }
     catch (listError) { setError(listError.message); }
     if (failures.length) setNotice(`No se pudieron subir ${failures.length} imagen(es). Puedes volver a intentarlo.`);
-    else setNotice('Imágenes actualizadas.');
+    else setNotice(lowResolution.length
+      ? `Imágenes actualizadas. ${lowResolution.join(', ')} podría verse borrosa. ${LOW_RESOLUTION_HINT}`
+      : 'Imágenes actualizadas.');
     setBusy(false);
   }
 
@@ -234,7 +237,7 @@ export default function ManagePage() {
             <Field label="Título" name="title" value={form.title} onChange={change} required minLength={kind === 'product' ? 3 : 5} maxLength={150} />
             <Field label="Categoría" name="category" value={form.category} onChange={change} required minLength={2} maxLength={80} />
             {kind === 'product' ? <>
-              <Field label="Precio (COP)" name="price" type="number" value={form.price} onChange={change} required min="1" step="100" />
+              <Field label="Precio (COP)" name="price" type="number" value={form.price} onChange={change} required min="1000" step="1" />
               <Field label="Unidades disponibles" name="quantity" type="number" value={form.quantity} onChange={change} min="0" step="1" />
             </> : <>
               <Field label="Nombre del negocio" name="business_name" value={form.business_name} onChange={change} maxLength={150} />

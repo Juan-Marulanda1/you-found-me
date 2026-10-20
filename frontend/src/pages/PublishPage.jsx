@@ -4,7 +4,7 @@ import Field from '../components/Field.jsx';
 import { Notice } from '../components/Feedback.jsx';
 import { AuthContext } from '../App.jsx';
 import { createPublication } from '../services/publications.js';
-import { ACCEPTED_IMAGE_TYPES, maxImagesFor, uploadPublicationImage } from '../services/imageUpload.js';
+import { ACCEPTED_IMAGE_TYPES, LOW_RESOLUTION_HINT, findLowResolutionImages, maxImagesFor, uploadPublicationImage } from '../services/imageUpload.js';
 import { rememberPublication } from '../services/publicationRefs.js';
 import { publicationPath } from '../utils/routes.js';
 
@@ -24,6 +24,8 @@ export default function PublishPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
+  const [createdPath, setCreatedPath] = useState('');
+  const [lowResolution, setLowResolution] = useState([]);
   const maxImages = maxImagesFor(kind);
 
   function updateField(event) {
@@ -34,6 +36,13 @@ export default function PublishPage() {
   function selectKind(nextKind) {
     setKind(nextKind);
     setFiles([]);
+    setLowResolution([]);
+  }
+
+  async function selectFiles(event) {
+    const selected = Array.from(event.target.files || []).slice(0, maxImages);
+    setFiles(selected);
+    setLowResolution(await findLowResolutionImages(selected));
   }
 
   async function submitPublication(event) {
@@ -75,8 +84,9 @@ export default function PublishPage() {
       }
       const path = publicationPath(kind, created.id);
       if (failures.length) {
-        setNotice(`La publicación se creó, pero no se pudieron subir ${failures.length} imagen(es). Podrás intentarlo desde Tus publicaciones.`);
-        window.setTimeout(() => navigate(path), 1800);
+        // Se queda en la página para que el motivo no desaparezca con la redirección.
+        setCreatedPath(path);
+        setError(`La publicación se creó, pero no se pudieron subir ${failures.length} imagen(es). ${failures.join(' ')} Puedes añadirlas desde Tus publicaciones.`);
       } else navigate(path);
     } catch (requestError) {
       setError(requestError.message);
@@ -118,14 +128,14 @@ export default function PublishPage() {
             <Field label={kind === 'product' ? 'Nombre del producto' : 'Título del aviso'} name="title" value={form.title} onChange={updateField} required minLength={kind === 'product' ? 3 : 5} maxLength={150} placeholder={kind === 'product' ? 'Ej. Mesa de madera restaurada' : 'Ej. Clases de guitarra en el barrio'} />
             <Field label="Categoría" name="category" value={form.category} onChange={updateField} required minLength={2} maxLength={80} placeholder="Ej. Hogar, comida, servicios" />
             {kind === 'product' ? <>
-              <Field label="Precio (COP)" name="price" type="number" value={form.price} onChange={updateField} required min="1" step="100" placeholder="25000" />
+              <Field label="Precio (COP)" name="price" type="number" value={form.price} onChange={updateField} required min="1000" step="1" placeholder="25000" />
               <Field label="Unidades disponibles" name="quantity" type="number" value={form.quantity} onChange={updateField} min="0" step="1" placeholder="Opcional" />
             </> : <>
               <Field label="Nombre del negocio" name="business_name" value={form.business_name} onChange={updateField} maxLength={150} placeholder="Opcional" />
               <Field label="Sitio web" name="website_url" type="url" value={form.website_url} onChange={updateField} maxLength={2048} placeholder="https://" />
             </>}
             <Field label="Descripción" name="description" as="textarea" rows="5" value={form.description} onChange={updateField} required minLength={10} maxLength={10000} placeholder="Describe lo que ofreces con los detalles que te gustaría encontrar." className="input field-wide" />
-            <label className="field field-wide"><span className="field-label">{kind === 'product' ? 'Fotos del producto' : 'Imagen del aviso'}</span><input className="file-input" type="file" accept={ACCEPTED_IMAGE_TYPES} multiple={maxImages > 1} onChange={(event) => setFiles(Array.from(event.target.files || []).slice(0, maxImages))} /><span className="field-hint">JPG, PNG o WebP · hasta 5 MB por imagen. {maxImages > 1 ? `Máximo ${maxImages} fotos.` : 'Puedes adjuntar 1 imagen.'}</span>{files.length > 0 && <span className="file-summary">{files.length} {files.length === 1 ? 'imagen seleccionada' : 'imágenes seleccionadas'}</span>}</label>
+            <label className="field field-wide"><span className="field-label">{kind === 'product' ? 'Fotos del producto' : 'Imagen del aviso'}</span><input className="file-input" type="file" accept={ACCEPTED_IMAGE_TYPES} multiple={maxImages > 1} onChange={selectFiles} /><span className="field-hint">JPG, PNG o WebP · hasta 5 MB por imagen. {maxImages > 1 ? `Máximo ${maxImages} fotos.` : 'Puedes adjuntar 1 imagen.'}</span>{files.length > 0 && <span className="file-summary">{files.length} {files.length === 1 ? 'imagen seleccionada' : 'imágenes seleccionadas'}</span>}{lowResolution.length > 0 && <span className="field-hint" role="status">⚠ {lowResolution.join(', ')} {lowResolution.length === 1 ? 'tiene' : 'tienen'} poca resolución y podría verse borrosa. {LOW_RESOLUTION_HINT}</span>}</label>
           </div>
         </div>
 
@@ -142,6 +152,7 @@ export default function PublishPage() {
         </div>
         <Notice tone="error">{error}</Notice>
         {notice && <Notice>{notice}</Notice>}
+        {createdPath && <Link className="button" to={createdPath}>Ver la publicación creada →</Link>}
         <div className="form-submit-row"><span>La publicación quedará asociada a tu cuenta. Al publicar aceptas que los datos marcados como públicos puedan ser vistos por cualquiera.</span><button className="button button-primary" disabled={busy}>{busy ? 'Publicando…' : 'Publicar ahora'} <span aria-hidden="true">↗</span></button></div>
       </form>
     </section>

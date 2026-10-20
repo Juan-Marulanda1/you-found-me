@@ -11,6 +11,32 @@ const MAX_IMAGES = { product: 8, announcement: 1 };
 // Valor para el atributo accept de los campos de archivo.
 export const ACCEPTED_IMAGE_TYPES = [...ACCEPTED_TYPES].join(',');
 
+// Ancho mínimo recomendado: por debajo de esto la imagen se ve borrosa al ampliarse.
+const MIN_RECOMMENDED_WIDTH = 800;
+
+// Nombres de los archivos cuyo ancho es menor al recomendado. Es solo un aviso:
+// si el navegador no puede leer una imagen, no se marca como pequeña.
+export async function findLowResolutionImages(files) {
+  const small = [];
+  for (const file of files) {
+    const url = URL.createObjectURL(file);
+    try {
+      const width = await new Promise((resolve) => {
+        const image = new Image();
+        image.onload = () => resolve(image.naturalWidth);
+        image.onerror = () => resolve(Infinity);
+        image.src = url;
+      });
+      if (width < MIN_RECOMMENDED_WIDTH) small.push(file.name);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+  return small;
+}
+
+export const LOW_RESOLUTION_HINT = `Se ve mejor con imágenes de al menos ${MIN_RECOMMENDED_WIDTH} px de ancho.`;
+
 export function maxImagesFor(kind) {
   return MAX_IMAGES[kind] || 1;
 }
@@ -32,7 +58,7 @@ export async function uploadPublicationImage(kind, publicationId, file, adminPin
     ...(adminPin ? { admin_pin: adminPin } : {}),
     content_type: file.type,
     size_bytes: file.size,
-    alt_text: altText || file.name.replace(/\.[^.]+$/, ''),
+    alt_text: (altText || file.name.replace(/\.[^.]+$/, '')).slice(0, 200),
   });
   // El navegador sube directamente a Storage; la API solo autoriza y confirma la carga.
   const { error } = await supabase.storage
