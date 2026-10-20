@@ -7,8 +7,17 @@ from app.core.pagination import PageData, build_page
 from app.core.request import get_client_ip
 from app.core.responses import DataResponse
 
-from .dependencies import get_product_service
+from .dependencies import get_product_image_service, get_product_service
 from .enums import ProductStatus
+from .image_schemas import (
+    ProductImageCompleteRequest,
+    ProductImageDeleteRequest,
+    ProductImageManagementResponse,
+    ProductImageResponse,
+    ProductImageUploadRequest,
+    ProductImageUploadResponse,
+)
+from .image_service import ProductImageService
 from .schemas import (
     ProductCreate,
     ProductDelete,
@@ -120,10 +129,109 @@ def delete_product(
     data: ProductDelete,
     request: Request,
     service: ProductService = Depends(get_product_service),
+    image_service: ProductImageService = Depends(get_product_image_service),
 ):
     service.delete(
         product_id,
         data.admin_pin,
         get_client_ip(request),
+        before_delete=image_service.remove_product_files,
     )
     return DataResponse[None](message="Product deleted successfully.")
+
+
+@router.post(
+    "/{product_id}/images/upload-url",
+    response_model=DataResponse[ProductImageUploadResponse],
+    status_code=status.HTTP_201_CREATED,
+)
+def create_product_image_upload(
+    product_id: UUID,
+    data: ProductImageUploadRequest,
+    request: Request,
+    product_service: ProductService = Depends(get_product_service),
+    image_service: ProductImageService = Depends(get_product_image_service),
+):
+    product = product_service.get_for_management(
+        product_id, data.admin_pin, get_client_ip(request)
+    )
+    upload = image_service.create_upload(product, data)
+    return DataResponse[ProductImageUploadResponse](
+        message="Signed image upload created.", data=upload
+    )
+
+
+@router.post(
+    "/{product_id}/images/{image_id}/complete",
+    response_model=DataResponse[ProductImageResponse],
+)
+def complete_product_image_upload(
+    product_id: UUID,
+    image_id: UUID,
+    data: ProductImageCompleteRequest,
+    request: Request,
+    product_service: ProductService = Depends(get_product_service),
+    image_service: ProductImageService = Depends(get_product_image_service),
+):
+    product_service.get_for_management(
+        product_id, data.admin_pin, get_client_ip(request)
+    )
+    image = image_service.complete(product_id, image_id)
+    return DataResponse[ProductImageResponse](
+        message="Product image is ready.", data=image
+    )
+
+
+@router.get(
+    "/{product_id}/images",
+    response_model=DataResponse[list[ProductImageResponse]],
+)
+def list_product_images(
+    product_id: UUID,
+    product_service: ProductService = Depends(get_product_service),
+    image_service: ProductImageService = Depends(get_product_image_service),
+):
+    product_service.get_public_by_id(product_id)
+    return DataResponse[list[ProductImageResponse]](
+        message="Product images retrieved successfully.",
+        data=image_service.list_public(product_id),
+    )
+
+
+@router.post(
+    "/{product_id}/images/manage",
+    response_model=DataResponse[list[ProductImageManagementResponse]],
+)
+def list_product_images_for_management(
+    product_id: UUID,
+    data: ProductImageCompleteRequest,
+    request: Request,
+    product_service: ProductService = Depends(get_product_service),
+    image_service: ProductImageService = Depends(get_product_image_service),
+):
+    product_service.get_for_management(
+        product_id, data.admin_pin, get_client_ip(request)
+    )
+    return DataResponse[list[ProductImageManagementResponse]](
+        message="Product images retrieved for management.",
+        data=image_service.list_management(product_id),
+    )
+
+
+@router.delete(
+    "/{product_id}/images/{image_id}",
+    response_model=DataResponse[None],
+)
+def delete_product_image(
+    product_id: UUID,
+    image_id: UUID,
+    data: ProductImageDeleteRequest,
+    request: Request,
+    product_service: ProductService = Depends(get_product_service),
+    image_service: ProductImageService = Depends(get_product_image_service),
+):
+    product_service.get_for_management(
+        product_id, data.admin_pin, get_client_ip(request)
+    )
+    image_service.delete(product_id, image_id)
+    return DataResponse[None](message="Product image deleted successfully.")

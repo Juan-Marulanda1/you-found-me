@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Callable
 from decimal import Decimal
 from uuid import UUID
 
@@ -93,10 +94,16 @@ class ProductService:
         return self.repository.update(product)
 
     def delete(
-        self, product_id: UUID, admin_pin: str, client_ip: str = "unknown"
+        self,
+        product_id: UUID,
+        admin_pin: str,
+        client_ip: str = "unknown",
+        before_delete: Callable[[UUID], None] | None = None,
     ) -> None:
         product = self.get_by_id(product_id)
         self._validate_pin(product, admin_pin, client_ip)
+        if before_delete is not None:
+            before_delete(product_id)
         self.repository.delete(product)
 
     def _validate_pin(self, product: Product, admin_pin: str, client_ip: str) -> None:
