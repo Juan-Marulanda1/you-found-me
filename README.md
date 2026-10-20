@@ -59,6 +59,11 @@ Todas las rutas llevan el prefijo `/api/v1` y las respuestas usan `{ "success", 
 | Productos | `POST /products/{id}/manage` | Consultar datos privados y estados no activos con su PIN |
 | Productos | `PATCH /products/{id}` | Editar con su PIN |
 | Productos | `DELETE /products/{id}` | Borrar con su PIN |
+| Imágenes de productos | `POST /products/{id}/images/upload-url` | Autorizar con PIN y emitir una carga firmada |
+| Imágenes de productos | `POST /products/{id}/images/{image_id}/complete` | Confirmar y publicar una imagen cargada |
+| Imágenes de productos | `GET /products/{id}/images` | Listar imágenes de un producto activo |
+| Imágenes de productos | `POST /products/{id}/images/manage` | Listar imágenes, incluidas pendientes, con PIN |
+| Imágenes de productos | `DELETE /products/{id}/images/{image_id}` | Borrar o cancelar una imagen con PIN |
 
 Los listados públicos muestran solo publicaciones `ACTIVE` y aceptan `page` (empieza en 1), `page_size` (1–100, predeterminado 20), `city`, `category` y `search` (busca en título y descripción; en anuncios también en el nombre del negocio). Los productos aceptan además `min_price` y `max_price`. La respuesta de lista incluye `items`, `page`, `page_size`, `total` y `pages`. No se pueden filtrar publicaciones pausadas o cerradas desde las rutas públicas.
 
@@ -115,6 +120,29 @@ Después de cinco PIN incorrectos para la misma publicación desde la misma dire
 ```
 
 Los estados de anuncios son `ACTIVE`, `PAUSED` y `CLOSED`; en productos son `ACTIVE`, `SOLD` y `CLOSED`. Las respuestas públicas no incluyen correo ni dirección exacta. El teléfono se devuelve solo si al crear o editar se envió `contact_phone_public: true`; por defecto queda privado. Las respuestas públicas nunca incluyen el hash del PIN.
+
+### Carga de imágenes de productos con Supabase Storage
+
+El backend entrega una capacidad de carga firmada solo después de validar el PIN del producto. La imagen se carga desde el navegador directamente a Supabase Storage; el backend no recibe ni retransmite sus bytes. La API permite JPG, PNG y WebP, hasta 5 MiB y 8 imágenes por producto. El bucket debe configurarse en Supabase como público para que el sitio pueda mostrar las fotos, con los tipos MIME `image/jpeg`, `image/png` y `image/webp` y un límite de 5 MiB. Los archivos quedan en `products/{product_id}/{uuid}.{ext}`; PostgreSQL guarda su ruta y metadatos, no la URL pública.
+
+Configura en `backend/.env`:
+
+| Parámetro | Valor | Función |
+| --- | --- | --- |
+| `SUPABASE_URL` | URL del proyecto, por ejemplo `https://<project-ref>.supabase.co` | Dirección base de la API de Storage. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Clave secreta del backend de Supabase | Firma cargas y elimina archivos. Nunca debe incluirse en el frontend ni en Git. |
+| `SUPABASE_PRODUCT_IMAGES_BUCKET` | `product-images` | Nombre exacto del bucket que creaste. |
+| `PRODUCT_IMAGE_MAX_BYTES` | `5242880` | Límite de tamaño validado por la API en bytes (5 MiB). |
+| `PRODUCT_IMAGE_MAX_COUNT` | `8` | Máximo de imágenes asociadas a un producto; las cargas pendientes también cuentan. |
+
+Flujo del cliente:
+
+1. Enviar a `POST /products/{id}/images/upload-url` el PIN, `content_type`, `size_bytes` y opcionalmente `alt_text`. Guardar temporalmente el `id`, `bucket`, `path` y `token` recibidos. La respuesta incluye `signed_upload_url` para clientes que prefieran usar la URL firmada directamente.
+2. Con el cliente JavaScript de Supabase configurado con `SUPABASE_URL` y la clave pública `anon`/publishable del proyecto, subir el archivo con `supabase.storage.from(bucket).uploadToSignedUrl(path, token, file, { contentType: file.type, upsert: false })`. No usar la clave secreta del servidor en el navegador. Supabase indica que el token de carga vence en dos horas.
+3. Llamar a `POST /products/{id}/images/{image_id}/complete` con el PIN. El servidor verifica que el objeto exista y que el tipo y tamaño coincidan antes de marcarlo como público.
+4. Consultar `GET /products/{id}/images` para obtener las URLs públicas de las imágenes confirmadas. En “Tus publicaciones”, usar `POST /products/{id}/images/manage` con el PIN para ver fotos y cargas pendientes, incluso si el producto está cerrado o vendido. Si se abandona una carga, borrar su `image_id` con `DELETE /products/{id}/images/{image_id}` y el PIN para liberar el cupo.
+
+El permiso público del bucket permite leer cualquier imagen cuyo URL se conozca; el PIN y la URL firmada controlan la carga, y el backend controla el borrado. Mantén el límite del bucket igual o menor que `PRODUCT_IMAGE_MAX_BYTES` y que el límite global configurado en Supabase. Si `SUPABASE_URL` o la clave están vacíos, las rutas de carga responden `503` y el resto de la API sigue funcionando. Las imágenes de anuncios generales todavía no están incluidas en este flujo.
 
 ### Sección “Tus publicaciones”
 
