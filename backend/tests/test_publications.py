@@ -1,5 +1,9 @@
+import asyncio
+import json
 import os
 import unittest
+from datetime import UTC, datetime
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 from pydantic import ValidationError
@@ -13,6 +17,62 @@ from app.modules.announcement.schemas import AnnouncementCreate, AnnouncementUpd
 from app.modules.announcement.service import AnnouncementService
 from app.modules.product.schemas import ProductCreate
 from app.modules.product.service import ProductService
+from app.modules.publication.repository import PageResult
+
+
+def call_asgi(app, method: str, path: str, body: dict | None = None):
+    """Exercise the real FastAPI router without requiring a test-client extra."""
+    parsed_path = urlsplit(path)
+    request_body = json.dumps(body).encode() if body is not None else b""
+    messages = []
+    request_sent = False
+
+    async def receive():
+        nonlocal request_sent
+        if request_sent:
+            return {"type": "http.disconnect"}
+        request_sent = True
+        return {"type": "http.request", "body": request_body, "more_body": False}
+
+    async def send(message):
+        messages.append(message)
+
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.3"},
+        "http_version": "1.1",
+        "method": method,
+        "scheme": "http",
+        "path": parsed_path.path,
+        "raw_path": parsed_path.path.encode(),
+        "query_string": parsed_path.query.encode(),
+        "root_path": "",
+        "headers": [
+            (b"host", b"testserver"),
+            (b"content-type", b"application/json"),
+            (b"content-length", str(len(request_body)).encode()),
+        ],
+        "client": ("127.0.0.1", 12345),
+        "server": ("testserver", 80),
+    }
+    asyncio.run(app(scope, receive, send))
+    response = next(
+        message for message in messages if message["type"] == "http.response.start"
+    )
+    response_body = b"".join(
+        message.get("body", b"")
+        for message in messages
+        if message["type"] == "http.response.body"
+    )
+    return response["status"], json.loads(response_body) if response_body else None
+
+
+def prepare_persisted_entity(entity):
+    now = datetime.now(UTC)
+    entity.id = uuid4()
+    entity.created_at = now
+    entity.updated_at = now
+    return entity
 
 
 class InMemoryAnnouncementRepository:
@@ -21,7 +81,7 @@ class InMemoryAnnouncementRepository:
         self.deleted = False
 
     def create(self, announcement: Announcement) -> Announcement:
-        self.announcement = announcement
+        self.announcement = prepare_persisted_entity(announcement)
         return announcement
 
     def get_by_id(self, announcement_id):
@@ -30,7 +90,12 @@ class InMemoryAnnouncementRepository:
         return None
 
     def list(self, **kwargs):
-        raise NotImplementedError
+        if self.announcement is None:
+            return PageResult(items=[], total=0)
+        status = kwargs.get("status")
+        if status is not None and self.announcement.status != status:
+            return PageResult(items=[], total=0)
+        return PageResult(items=[self.announcement], total=1)
 
     def update(self, announcement: Announcement) -> Announcement:
         self.announcement = announcement
@@ -48,6 +113,9 @@ class ManagementPinTests(unittest.TestCase):
         from app.main import app
 
         cls.app = app
+
+    def setUp(self):
+        self.app.dependency_overrides.clear()
 
     def test_pin_hash_is_salted_and_verifiable(self):
         first_hash = hash_admin_pin("123456")
@@ -114,6 +182,202 @@ class ManagementPinTests(unittest.TestCase):
         )
         self.assertTrue(verify_admin_pin("123456", product.admin_pin_hash))
 
+    def test_public_announcement_hides_private_fields_and_inactive_items(self):
+        from app.modules.announcement.dependencies import get_announcement_service
+
+        repository = InMemoryAnnouncementRepository()
+        service = AnnouncementService(repository)
+        data = self.announcement_data()
+        data.update(contact_email="hola@horno.example", address="Laureles")
+        announcement = service.create(AnnouncementCreate.model_validate(data))
+        announcement.id = uuid4()
+        self.app.dependency_overrides[get_announcement_service] = lambda: service
+
+        status_code, response = call_asgi(
+            self.app, "GET", f"/api/v1/announcements/{announcement.id}"
+        )
+
+        self.assertEqual(status_code, 200)
+        public_data = response["data"]
+        self.assertIsNone(public_data["contact_phone"])
+        self.assertNotIn("contact_email", public_data)
+        self.assertNotIn("address", public_data)
+
+        announcement.status = AnnouncementStatus.CLOSED
+        status_code, _ = call_asgi(
+            self.app, "GET", f"/api/v1/announcements/{announcement.id}"
+        )
+        self.assertEqual(status_code, 404)
+
+        status_code, response = call_asgi(
+            self.app,
+            "GET",
+            "/api/v1/announcements",
+        )
+        self.assertEqual(status_code, 200)
+        self.assertEqual(response["data"]["items"], [])
+
+    def test_management_access_returns_private_announcement_with_pin_only(self):
+        from app.modules.announcement.dependencies import get_announcement_service
+
+        repository = InMemoryAnnouncementRepository()
+        service = AnnouncementService(repository)
+        data = self.announcement_data()
+        data.update(contact_email="hola@horno.example", address="Laureles")
+        announcement = service.create(AnnouncementCreate.model_validate(data))
+        announcement.id = uuid4()
+        announcement.status = AnnouncementStatus.PAUSED
+        self.app.dependency_overrides[get_announcement_service] = lambda: service
+
+        wrong_pin_status, _ = call_asgi(
+            self.app,
+            "POST",
+            f"/api/v1/announcements/{announcement.id}/manage",
+            {"admin_pin": "000000"},
+        )
+        self.assertEqual(wrong_pin_status, 403)
+
+        status_code, response = call_asgi(
+            self.app,
+            "POST",
+            f"/api/v1/announcements/{announcement.id}/manage",
+            {"admin_pin": "123456"},
+        )
+        self.assertEqual(status_code, 200)
+        private_data = response["data"]
+        self.assertEqual(private_data["contact_email"], "hola@horno.example")
+        self.assertEqual(private_data["address"], "Laureles")
+        self.assertEqual(private_data["contact_phone"], "3001234567")
+        self.assertEqual(private_data["status"], "PAUSED")
+
+    def test_product_phone_is_public_only_with_explicit_consent(self):
+        from app.modules.product.dependencies import get_product_service
+
+        repository = type("MemoryProductRepository", (), {})()
+
+        def create_product(product):
+            return prepare_persisted_entity(product)
+
+        repository.create = create_product
+        repository.get_by_id = lambda product_id: product
+        product = ProductService(repository).create(
+            ProductCreate.model_validate(
+                {
+                    "admin_pin": "123456",
+                    "title": "Mesa de madera",
+                    "description": "Mesa artesanal en excelente estado.",
+                    "category": "Hogar",
+                    "price": "250000.00",
+                    "contact_name": "Ana Pérez",
+                    "contact_phone": "3001234567",
+                    "contact_phone_public": True,
+                    "contact_email": "privado@example.com",
+                    "city": "Medellín",
+                    "address": "Laureles",
+                }
+            )
+        )
+        product.id = uuid4()
+        repository.list = lambda **kwargs: PageResult(items=[product], total=1)
+        self.app.dependency_overrides[get_product_service] = lambda: ProductService(
+            repository
+        )
+
+        status_code, response = call_asgi(
+            self.app, "GET", f"/api/v1/products/{product.id}"
+        )
+
+        self.assertEqual(status_code, 200)
+        public_data = response["data"]
+        self.assertEqual(public_data["contact_phone"], "3001234567")
+        self.assertNotIn("contact_email", public_data)
+        self.assertNotIn("address", public_data)
+
+    def test_create_response_does_not_echo_private_contact_fields(self):
+        from app.modules.announcement.dependencies import get_announcement_service
+
+        service = AnnouncementService(InMemoryAnnouncementRepository())
+        self.app.dependency_overrides[get_announcement_service] = lambda: service
+        payload = self.announcement_data()
+        payload.update(contact_email="hola@horno.example", address="Laureles")
+
+        status_code, response = call_asgi(
+            self.app, "POST", "/api/v1/announcements", payload
+        )
+
+        self.assertEqual(status_code, 201)
+        public_data = response["data"]
+        self.assertIsNone(public_data["contact_phone"])
+        self.assertNotIn("contact_email", public_data)
+        self.assertNotIn("address", public_data)
+
+    def test_proxy_headers_are_trusted_only_from_configured_networks(self):
+        from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+
+        observed_clients = []
+
+        async def app(scope, receive, send):
+            observed_clients.append(scope["client"])
+
+        middleware = ProxyHeadersMiddleware(app, trusted_hosts=["10.0.0.0/8"])
+
+        async def run_case(peer_ip: str):
+            async def receive():
+                return {"type": "http.request", "body": b"", "more_body": False}
+
+            async def send(message):
+                return None
+
+            await middleware(
+                {
+                    "type": "http",
+                    "scheme": "http",
+                    "client": (peer_ip, 8000),
+                    "headers": [(b"x-forwarded-for", b"203.0.113.99")],
+                },
+                receive,
+                send,
+            )
+
+        asyncio.run(run_case("198.51.100.10"))
+        asyncio.run(run_case("10.20.30.40"))
+
+        self.assertEqual(observed_clients[0][0], "198.51.100.10")
+        self.assertEqual(observed_clients[1][0], "203.0.113.99")
+
+    def test_api_server_passes_configured_proxy_allowlist_to_uvicorn(self):
+        import sys
+        from unittest.mock import patch
+
+        import server
+        from app.core.config import settings
+
+        with (
+            patch.object(sys, "argv", ["server.py"]),
+            patch.object(server.uvicorn, "run") as run_server,
+        ):
+            server.main()
+
+        run_server.assert_called_once()
+        self.assertTrue(run_server.call_args.kwargs["proxy_headers"])
+        self.assertEqual(
+            run_server.call_args.kwargs["forwarded_allow_ips"],
+            settings.FORWARDED_ALLOW_IPS,
+        )
+
+    def test_proxy_allowlist_rejects_wildcard_and_invalid_addresses(self):
+        from app.core.config import Settings
+
+        for allowlist in ("*", "not-an-ip"):
+            with self.subTest(allowlist=allowlist):
+                with self.assertRaises(ValidationError):
+                    Settings(
+                        _env_file=None,
+                        DATABASE_URL="sqlite+pysqlite:///:memory:",
+                        DEBUG=False,
+                        FORWARDED_ALLOW_IPS=allowlist,
+                    )
+
     def test_update_requires_pin_and_at_least_one_field(self):
         with self.assertRaises(ValidationError):
             AnnouncementUpdate.model_validate({"admin_pin": "123456"})
@@ -173,9 +437,16 @@ class ManagementPinTests(unittest.TestCase):
     def test_openapi_includes_both_listing_domains_and_management_routes(self):
         paths = self.app.openapi()["paths"]
         self.assertIn("/api/v1/announcements", paths)
+        self.assertIn("/api/v1/announcements/{announcement_id}/manage", paths)
         self.assertIn("patch", paths["/api/v1/announcements/{announcement_id}"])
         self.assertIn("/api/v1/products", paths)
+        self.assertIn("/api/v1/products/{product_id}/manage", paths)
         self.assertIn("patch", paths["/api/v1/products/{product_id}"])
+        announcement_filters = {
+            parameter["name"]
+            for parameter in paths["/api/v1/announcements"]["get"]["parameters"]
+        }
+        self.assertNotIn("status", announcement_filters)
 
     def test_alembic_model_registry_contains_all_tables(self):
         import app.database.models as registered_models
