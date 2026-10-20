@@ -1,9 +1,9 @@
 import { completePublicationImageUpload, createPublicationImageUpload } from './publications.js';
+import { isImageStorageConfigured, supabase } from './supabase.js';
 const ACCEPTED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const MAX_BYTES = 5 * 1024 * 1024;
 
 export async function uploadPublicationImage(kind, publicationId, file, adminPin, altText = '') {
-  const { isImageStorageConfigured, supabase } = await import('./supabase.js');
   if (!isImageStorageConfigured) {
     throw new Error('Falta configurar el acceso público de Supabase para imágenes.');
   }
@@ -15,7 +15,7 @@ export async function uploadPublicationImage(kind, publicationId, file, adminPin
   }
 
   const upload = await createPublicationImageUpload(kind, publicationId, {
-    admin_pin: adminPin,
+    ...(adminPin ? { admin_pin: adminPin } : {}),
     content_type: file.type,
     size_bytes: file.size,
     alt_text: altText || file.name.replace(/\.[^.]+$/, ''),

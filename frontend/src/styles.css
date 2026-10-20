@@ -39,6 +39,8 @@ img { display: block; max-width: 100%; }
 .main-nav a:hover { color: var(--green); }
 .main-nav .nav-publish { padding: 12px 17px; border-radius: 999px; color: white; background: var(--green); }
 .main-nav .nav-publish:hover { color: white; background: var(--green-dark); }
+.nav-account-button { padding: 8px 0; border: 0; color: inherit; background: transparent; cursor: pointer; font-size: inherit; font-weight: inherit; }
+.nav-account-button:hover { color: var(--green); }
 .nav-publish span { margin-left: 7px; font-size: 17px; line-height: 0; }
 .main-content { width: min(1240px, calc(100% - 64px)); margin: 0 auto; flex: 1; }
 .site-footer { width: min(1240px, calc(100% - 64px)); min-height: 88px; margin: 72px auto 0; border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 12px; }
@@ -213,6 +215,12 @@ textarea.input { min-height: 115px; resize: vertical; line-height: 1.6; }
 .access-page > p { margin: 0 auto 23px; color: var(--muted); font-size: 12px; line-height: 1.7; }
 .access-form { text-align: left; }
 .access-form .button { margin-top: 8px; }
+.account-mode-switch { margin: 0 0 18px; padding: 4px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; border-radius: 6px; background: #efeee7; }
+.account-mode-switch button { min-height: 38px; border: 0; border-radius: 4px; color: var(--muted); background: transparent; cursor: pointer; font-size: 11px; font-weight: 700; }
+.account-mode-switch button.selected { color: var(--green); background: var(--white); box-shadow: 0 1px 4px #25291a12; }
+.account-actions { display: grid; gap: 10px; }
+.my-publications-section-title { margin: 32px 0 12px; font-family: Manrope, sans-serif; font-size: 19px; letter-spacing: -.04em; }
+.my-claim-hint { margin: -5px 0 15px; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .access-back { margin: 22px 0 0; }
 .manage-gate { margin-top: 32px; }
 .form-error { grid-column: 1 / -1; margin: 0; color: var(--danger); font-size: 11px; }

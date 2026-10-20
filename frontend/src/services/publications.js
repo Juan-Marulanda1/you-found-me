@@ -17,34 +17,50 @@ export function listPublications(kind, filters = {}) {
 }
 
 export const getPublication = (kind, id) => request(`${endpoints[kind]}/${id}`);
-export const createPublication = (kind, body, key) => request(endpoints[kind], {
-  method: 'POST', body, headers: { 'X-Publication-Key': key },
+export const createPublication = (kind, body) => request(endpoints[kind], {
+  method: 'POST', body,
 });
-export const verifyCreationKey = (key) => request('/publication-access/verify', {
-  method: 'POST', headers: { 'X-Publication-Key': key },
+export const requestAccountInvitation = (email, key) => request('/account-access/invite', {
+  method: 'POST', body: { email }, headers: { 'X-Publication-Key': key },
 });
+export const getMyPublications = () => request('/account-access/me/publications');
+export const claimLegacyPublication = (kind, publicationId, adminPin) => request(
+  '/account-access/me/claim', {
+    method: 'POST', body: { kind, publication_id: publicationId, admin_pin: adminPin },
+  },
+);
 export const getPublicationForManagement = (kind, id, adminPin) => request(
-  `${endpoints[kind]}/${id}/manage`, { method: 'POST', body: { admin_pin: adminPin } },
+  `${endpoints[kind]}/${id}/manage`, {
+    method: 'POST', body: adminPin ? { admin_pin: adminPin } : {},
+  },
 );
 export const updatePublication = (kind, id, body) => request(
   `${endpoints[kind]}/${id}`, { method: 'PATCH', body },
 );
 export const deletePublication = (kind, id, adminPin) => request(
-  `${endpoints[kind]}/${id}`, { method: 'DELETE', body: { admin_pin: adminPin } },
+  `${endpoints[kind]}/${id}`, {
+    method: 'DELETE', body: adminPin ? { admin_pin: adminPin } : {},
+  },
 );
 
 export const listPublicationImages = (kind, id) => request(`${endpoints[kind]}/${id}/images`);
 export const listPublicationImagesForManagement = (kind, id, adminPin) => request(
-  `${endpoints[kind]}/${id}/images/manage`, { method: 'POST', body: { admin_pin: adminPin } },
+  `${endpoints[kind]}/${id}/images/manage`, {
+    method: 'POST', body: adminPin ? { admin_pin: adminPin } : {},
+  },
 );
 export const createPublicationImageUpload = (kind, id, body) => request(
   `${endpoints[kind]}/${id}/images/upload-url`, { method: 'POST', body },
 );
 export const completePublicationImageUpload = (kind, id, imageId, adminPin) => request(
-  `${endpoints[kind]}/${id}/images/${imageId}/complete`, { method: 'POST', body: { admin_pin: adminPin } },
+  `${endpoints[kind]}/${id}/images/${imageId}/complete`, {
+    method: 'POST', body: adminPin ? { admin_pin: adminPin } : {},
+  },
 );
 export const deletePublicationImage = (kind, id, imageId, adminPin) => request(
-  `${endpoints[kind]}/${id}/images/${imageId}`, { method: 'DELETE', body: { admin_pin: adminPin } },
+  `${endpoints[kind]}/${id}/images/${imageId}`, {
+    method: 'DELETE', body: adminPin ? { admin_pin: adminPin } : {},
+  },
 );
 
 export const listProductImages = (id) => listPublicationImages('product', id);

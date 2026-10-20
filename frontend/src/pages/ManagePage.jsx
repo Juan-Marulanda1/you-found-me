@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { AuthContext } from '../App.jsx';
 import Field from '../components/Field.jsx';
 import { Busy, Notice } from '../components/Feedback.jsx';
-import { deletePublication, deletePublicationImage, getPublicationForManagement, listPublicationImagesForManagement, updatePublication } from '../services/publications.js';
+import { claimLegacyPublication, deletePublication, deletePublicationImage, getPublicationForManagement, listPublicationImagesForManagement, updatePublication } from '../services/publications.js';
 import { uploadPublicationImage } from '../services/imageUpload.js';
 import { forgetPublication, rememberPublication } from '../services/publicationRefs.js';
 import { formatDate, formatPrice, kindLabel } from '../utils/format.js';
@@ -32,6 +33,7 @@ function cacheManagedPublication(kind, id, publication, coverImage) {
 }
 
 export default function ManagePage() {
+  const { session } = useContext(AuthContext);
   const { kind, id } = useParams();
   const navigate = useNavigate();
   const validKind = ['product', 'announcement'].includes(kind);
@@ -49,17 +51,19 @@ export default function ManagePage() {
     if (!validKind) setError('El tipo de publicación no es válido.');
   }, [validKind]);
 
-  async function loadManagement(event) {
+  async function loadManagement(event, suppliedPin = pin) {
     event?.preventDefault();
     setBusy(true);
     setError('');
     try {
-      const data = await getPublicationForManagement(kind, id, pin);
+      const data = await getPublicationForManagement(kind, id, suppliedPin);
+      if (suppliedPin && session) await claimLegacyPublication(kind, id, suppliedPin);
+      if (suppliedPin) setPin(suppliedPin);
       setItem(data);
       setForm(editableFields(kind, data));
       setLoaded(true);
       try {
-        const managedImages = await listPublicationImagesForManagement(kind, id, pin);
+        const managedImages = await listPublicationImagesForManagement(kind, id, suppliedPin);
         setImages(managedImages);
         cacheManagedPublication(
           kind,
@@ -72,11 +76,16 @@ export default function ManagePage() {
         setNotice('La publicación abrió correctamente, pero no pudimos cargar sus imágenes.');
       }
     } catch (requestError) {
-      setError(requestError.message);
+      setError(suppliedPin ? requestError.message : '');
     } finally {
       setBusy(false);
     }
   }
+
+  useEffect(() => {
+    if (!validKind || !session || loaded) return;
+    loadManagement(undefined, '');
+  }, [id, kind, session, validKind, loaded]);
 
   function change(event) {
     const { name, value, type, checked } = event.target;
@@ -89,7 +98,7 @@ export default function ManagePage() {
     setError('');
     setNotice('');
     const body = {
-      admin_pin: pin,
+      admin_pin: pin || undefined,
       title: form.title.trim(), description: form.description.trim(), category: form.category.trim(),
       city: form.city.trim(), contact_name: form.contact_name.trim(), contact_phone: form.contact_phone.trim(),
       contact_email: form.contact_email.trim() || null, address: form.address.trim() || null,
@@ -195,7 +204,7 @@ export default function ManagePage() {
       <div className="access-illustration" aria-hidden="true"><span>⌂</span><span>✓</span></div>
       <span className="eyebrow">Administración privada</span>
       <h1>Vuelve a tu<br /><em>publicación.</em></h1>
-      <p>Ingresa el PIN que creaste al publicar este {kindLabel(kind).toLowerCase()}.</p>
+      <p>{session ? 'Si publicaste esto antes de tener una cuenta, ingresa el PIN para vincularlo ahora.' : `Inicia sesión para abrir tu publicación, o ingresa el PIN de un aviso antiguo.`}</p>
       <form className="access-form" onSubmit={loadManagement}>
         <Field label="PIN de administración" name="management-pin" type="password" inputMode="numeric" autoComplete="current-password" value={pin} onChange={(event) => setPin(event.target.value)} required minLength={4} maxLength={12} pattern="[0-9]{4,12}" />
         <Notice tone="error">{error}</Notice>

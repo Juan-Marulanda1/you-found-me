@@ -1,14 +1,18 @@
-import { createContext, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { Link, Outlet, Route, Routes } from 'react-router-dom';
+import AccountPage from './pages/AccountPage.jsx';
 import CatalogPage from './pages/CatalogPage.jsx';
 import DetailPage from './pages/DetailPage.jsx';
 import ManagePage from './pages/ManagePage.jsx';
 import MyPublicationsPage from './pages/MyPublicationsPage.jsx';
 import PublishPage from './pages/PublishPage.jsx';
+import { signOut } from './services/auth.js';
+import { supabase } from './services/supabase.js';
 
-export const PublicationAccessContext = createContext(null);
+export const AuthContext = createContext({ session: null });
 
 function SiteLayout() {
+  const { session } = useContext(AuthContext);
   return (
     <div className="app-shell">
       <header className="site-header">
@@ -18,8 +22,11 @@ function SiteLayout() {
         </Link>
         <nav className="main-nav" aria-label="Navegación principal">
           <Link to="/">Explorar</Link>
-          <Link to="/mis-publicaciones">Tus publicaciones</Link>
+          {session && <Link to="/mis-publicaciones">Tus publicaciones</Link>}
           <Link to="/publicar" className="nav-publish">Publicar <span aria-hidden="true">＋</span></Link>
+          {session ? (
+            <button className="nav-account-button" type="button" onClick={() => signOut()}>Salir</button>
+          ) : <Link to="/cuenta">Entrar</Link>}
         </nav>
       </header>
       <main className="main-content"><Outlet /></main>
@@ -32,22 +39,31 @@ function SiteLayout() {
 }
 
 export default function App() {
-  const [creationKey, setCreationKey] = useState('');
-  const access = useMemo(() => ({ creationKey, setCreationKey }), [creationKey]);
+  const [session, setSession] = useState(null);
+
+  useEffect(() => {
+    if (!supabase) return undefined;
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   return (
-    <PublicationAccessContext.Provider value={access}>
+    <AuthContext.Provider value={{ session }}>
       <Routes>
         <Route element={<SiteLayout />}>
           <Route index element={<CatalogPage />} />
           <Route path="/productos/:id" element={<DetailPage kind="product" />} />
           <Route path="/avisos/:id" element={<DetailPage kind="announcement" />} />
+          <Route path="/cuenta" element={<AccountPage />} />
           <Route path="/publicar" element={<PublishPage />} />
           <Route path="/mis-publicaciones" element={<MyPublicationsPage />} />
           <Route path="/gestionar/:kind/:id" element={<ManagePage />} />
           <Route path="*" element={<section className="empty-state"><span className="eyebrow">404</span><h1>No encontramos esta página</h1><Link className="button button-primary" to="/">Volver al inicio</Link></section>} />
         </Route>
       </Routes>
-    </PublicationAccessContext.Provider>
+    </AuthContext.Provider>
   );
 }

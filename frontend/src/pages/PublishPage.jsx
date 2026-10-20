@@ -2,22 +2,21 @@ import { useContext, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Field from '../components/Field.jsx';
 import { Notice } from '../components/Feedback.jsx';
-import { PublicationAccessContext } from '../App.jsx';
-import { createPublication, verifyCreationKey } from '../services/publications.js';
+import { AuthContext } from '../App.jsx';
+import { createPublication } from '../services/publications.js';
 import { uploadPublicationImage } from '../services/imageUpload.js';
 import { rememberPublication } from '../services/publicationRefs.js';
 
 const initialForm = {
   title: '', description: '', category: '', price: '', quantity: '', currency: 'COP',
   business_name: '', website_url: '', contact_name: '', contact_phone: '',
-  contact_email: '', city: '', address: '', admin_pin: '', contact_phone_public: false,
+  contact_email: '', city: '', address: '', contact_phone_public: false,
 };
 
 export default function PublishPage() {
-  const { creationKey, setCreationKey } = useContext(PublicationAccessContext);
+  const { session } = useContext(AuthContext);
   const navigate = useNavigate();
   const [kind, setKind] = useState('product');
-  const [keyInput, setKeyInput] = useState('');
   const [form, setForm] = useState(initialForm);
   const [files, setFiles] = useState([]);
   const [error, setError] = useState('');
@@ -34,21 +33,6 @@ export default function PublishPage() {
     setFiles([]);
   }
 
-  async function unlock(event) {
-    event.preventDefault();
-    setError('');
-    setBusy(true);
-    try {
-      await verifyCreationKey(keyInput.trim());
-      setCreationKey(keyInput.trim());
-      setKeyInput('');
-    } catch (requestError) {
-      setError(requestError.status === 403 ? 'La clave no es correcta.' : requestError.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function submitPublication(event) {
     event.preventDefault();
     setError('');
@@ -63,7 +47,6 @@ export default function PublishPage() {
       contact_email: form.contact_email.trim() || null,
       city: form.city.trim(),
       address: form.address.trim() || null,
-      admin_pin: form.admin_pin,
       contact_phone_public: form.contact_phone_public,
     };
 
@@ -77,50 +60,38 @@ export default function PublishPage() {
     }
 
     try {
-      const created = await createPublication(kind, body, creationKey);
-      try { rememberPublication(kind, created.id, created); } catch { /* Publication remains created even if browser storage is unavailable. */ }
+      const created = await createPublication(kind, body);
+      try { rememberPublication(kind, created.id, created); } catch { /* Local previews are optional. */ }
 
-      if (files.length) {
-        const failures = [];
-        for (const file of files) {
-          try { await uploadPublicationImage(kind, created.id, file, form.admin_pin); }
-          catch (uploadError) { failures.push(`${file.name}: ${uploadError.message}`); }
-        }
-        if (failures.length) {
-          setNotice(`La publicación se creó. No se pudieron subir ${failures.length} imagen(es); puedes intentarlo desde “Tus publicaciones”.`);
-          window.setTimeout(() => navigate(`/${kind === 'product' ? 'productos' : 'avisos'}/${created.id}`), 1800);
-        } else {
-          navigate(`/${kind === 'product' ? 'productos' : 'avisos'}/${created.id}`);
-        }
-      } else {
-        navigate(`/${kind === 'product' ? 'productos' : 'avisos'}/${created.id}`);
+      const failures = [];
+      for (const file of files) {
+        try { await uploadPublicationImage(kind, created.id, file); }
+        catch (uploadError) { failures.push(`${file.name}: ${uploadError.message}`); }
       }
+      const path = `/${kind === 'product' ? 'productos' : 'avisos'}/${created.id}`;
+      if (failures.length) {
+        setNotice(`La publicación se creó, pero no se pudieron subir ${failures.length} imagen(es). Podrás intentarlo desde Tus publicaciones.`);
+        window.setTimeout(() => navigate(path), 1800);
+      } else navigate(path);
     } catch (requestError) {
-      if (requestError.status === 403) {
-        setCreationKey('');
-        setError('La clave de publicación ya no es válida. Ingresa la clave activa para continuar.');
-      } else setError(requestError.message);
+      setError(requestError.message);
     } finally {
       setBusy(false);
     }
   }
 
-  if (!creationKey) {
-    return (
-      <section className="access-page">
-        <div className="access-illustration" aria-hidden="true"><span>✳</span><span>＋</span></div>
-        <span className="eyebrow">Espacio para publicar</span>
-        <h1>¿Tienes algo<br /><em>para compartir?</em></h1>
-        <p>Esta sección es privada. Ingresa la clave que te compartió quien administra You Found Me.</p>
-        <form className="access-form" onSubmit={unlock}>
-          <Field label="Clave de publicación" name="publication-key" type="password" autoComplete="off" value={keyInput} onChange={(event) => setKeyInput(event.target.value)} required />
-          <Notice tone="error">{error}</Notice>
-          <button className="button button-primary button-wide" disabled={busy}>{busy ? 'Verificando…' : 'Entrar a publicar'} <span aria-hidden="true">→</span></button>
-        </form>
-        <Link className="back-link access-back" to="/">← Volver al catálogo</Link>
-      </section>
-    );
-  }
+  if (!session) return (
+    <section className="access-page">
+      <div className="access-illustration" aria-hidden="true"><span>✳</span><span>＋</span></div>
+      <span className="eyebrow">Espacio para publicar</span>
+      <h1>¿Tienes algo<br /><em>para compartir?</em></h1>
+      <p>Inicia sesión para publicar y administrar tus avisos. La persona administradora puede invitarte con una clave privada.</p>
+      <div className="account-actions">
+        <Link className="button button-primary button-wide" to="/cuenta">Crear cuenta o iniciar sesión <span aria-hidden="true">→</span></Link>
+      </div>
+      <Link className="back-link access-back" to="/">← Volver al catálogo</Link>
+    </section>
+  );
 
   return (
     <section className="publish-page">
@@ -164,17 +135,9 @@ export default function PublishPage() {
             <label className="consent-field"><input type="checkbox" name="contact_phone_public" checked={form.contact_phone_public} onChange={updateField} /><span><strong>Mostrar mi teléfono en el aviso público</strong><small>Si no lo marcas, el teléfono solo se conservará para administrar la publicación.</small></span></label>
           </div>
         </div>
-
-        <div className="form-section">
-          <div className="form-section-heading"><span>03</span><div><h2>Protege tu publicación</h2><p>Con este PIN podrás editarla o borrarla desde “Tus publicaciones”.</p></div></div>
-          <div className="form-grid pin-grid">
-            <Field label="PIN de administración" name="admin_pin" type="password" inputMode="numeric" autoComplete="new-password" value={form.admin_pin} onChange={updateField} required minLength={6} maxLength={12} pattern="[0-9]{6,12}" placeholder="Entre 6 y 12 números" />
-            <p className="pin-reminder">Guárdalo en un lugar seguro. No podremos recuperarlo si lo pierdes.</p>
-          </div>
-        </div>
         <Notice tone="error">{error}</Notice>
         {notice && <Notice>{notice}</Notice>}
-        <div className="form-submit-row"><span>Al publicar aceptas que los datos marcados como públicos puedan ser vistos por cualquiera.</span><button className="button button-primary" disabled={busy}>{busy ? 'Publicando…' : 'Publicar ahora'} <span aria-hidden="true">↗</span></button></div>
+        <div className="form-submit-row"><span>La publicación quedará asociada a tu cuenta. Al publicar aceptas que los datos marcados como públicos puedan ser vistos por cualquiera.</span><button className="button button-primary" disabled={busy}>{busy ? 'Publicando…' : 'Publicar ahora'} <span aria-hidden="true">↗</span></button></div>
       </form>
     </section>
   );

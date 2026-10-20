@@ -1,90 +1,141 @@
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { AuthContext } from '../App.jsx';
 import PublicationCard from '../components/PublicationCard.jsx';
 import { Busy, Notice } from '../components/Feedback.jsx';
-import { getPublication } from '../services/publications.js';
-import { getPublicationRefs, forgetPublication } from '../services/publicationRefs.js';
-import { kindLabel } from '../utils/format.js';
+import { getMyPublications } from '../services/publications.js';
+import { getPublicationRefs } from '../services/publicationRefs.js';
 
-function savedPreview(reference) {
-  const preview = reference.preview || {};
-  return {
-    ...preview,
-    id: reference.id,
-    title: preview.title || 'Publicación guardada',
-    category: preview.category || kindLabel(reference.kind),
-    description: preview.description || 'Ingresa el PIN para cargar la vista previa y editar esta publicación.',
-  };
+function localFallbacks(references, knownIds) {
+  return references
+    .filter((reference) => !knownIds.has(`${reference.kind}-${reference.id}`))
+    .map((reference) => ({
+      kind: reference.kind,
+      id: reference.id,
+      title: reference.preview?.title || 'Publicación anterior',
+      category: reference.preview?.category || 'Sin categoría',
+      description: reference.preview?.description || 'Abre esta publicación e ingresa su PIN para reclamarla.',
+      city: reference.preview?.city || '',
+      status: reference.preview?.status || 'ACTIVE',
+      cover_image: reference.preview?.cover_image || null,
+    }));
 }
 
 export default function MyPublicationsPage() {
-  const [refs, setRefs] = useState(getPublicationRefs);
+  const { session } = useContext(AuthContext);
   const [publications, setPublications] = useState([]);
+  const [claimable, setClaimable] = useState([]);
+  const [localLegacy, setLocalLegacy] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     let active = true;
-    if (!refs.length) {
+    if (!session) {
       setPublications([]);
-      setLoading(false);
+      setClaimable([]);
+      setLocalLegacy([]);
       return () => { active = false; };
     }
-
     setLoading(true);
-    Promise.all(refs.map(async (reference) => {
-      try {
-        const current = await getPublication(reference.kind, reference.id);
-        return {
-          ...reference,
-          item: { ...reference.preview, ...current, id: reference.id },
-        };
-      } catch {
-        return { ...reference, item: savedPreview(reference) };
-      }
-    })).then((items) => {
-      if (active) setPublications(items);
+    setError('');
+    getMyPublications().then((data) => {
+      if (!active) return;
+      setPublications([
+        ...data.products.map((item) => ({ kind: 'product', item })),
+        ...data.announcements.map((item) => ({ kind: 'announcement', item })),
+      ]);
+      setClaimable(data.claimable || []);
+      const knownIds = new Set([
+        ...data.products.map((item) => `product-${item.id}`),
+        ...data.announcements.map((item) => `announcement-${item.id}`),
+        ...(data.claimable || []).map((item) => `${item.kind}-${item.id}`),
+      ]);
+      setLocalLegacy(localFallbacks(getPublicationRefs(), knownIds));
+    }).catch((requestError) => {
+      if (active) setError(requestError.message);
     }).finally(() => {
       if (active) setLoading(false);
     });
-
     return () => { active = false; };
-  }, [refs]);
-
-  function removeReference(item) {
-    forgetPublication(item.kind, item.id);
-    setRefs(getPublicationRefs());
-  }
+  }, [session]);
 
   return (
     <section className="content-page my-publications-page">
       <div className="page-heading">
         <span className="eyebrow">Tu espacio personal</span>
         <h1>Tus <em>publicaciones.</em></h1>
-        <p>Elige una tarjeta para editarla. El PIN se solicitará antes de abrir la administración.</p>
+        <p>Inicia sesión para ver tus publicaciones en cualquier dispositivo. Las antiguas se pueden reclamar con su PIN.</p>
       </div>
-      {loading && <Busy>Cargando tus publicaciones…</Busy>}
-      {!loading && publications.length ? (
-        <div className="card-grid my-publications-grid">
-          {publications.map((reference) => (
-            <PublicationCard
-              key={`${reference.kind}-${reference.id}`}
-              kind={reference.kind}
-              item={reference.item}
-              to={`/gestionar/${reference.kind}/${reference.id}`}
-              actionLabel="Editar con tu PIN"
-              onRemove={() => removeReference(reference)}
-            />
-          ))}
-        </div>
-      ) : !loading && (
+      {!session && (
         <div className="empty-state my-empty">
           <span className="empty-illustration" aria-hidden="true">⌂</span>
-          <h2>Tu lista está vacía</h2>
-          <p>Cuando publiques algo desde este navegador, lo encontrarás aquí.</p>
+          <h2>Inicia sesión para continuar</h2>
+          <p>Las publicaciones nuevas aparecen aquí al entrar en tu cuenta.</p>
+          <Link className="button button-primary" to="/cuenta">Entrar a mi cuenta <span aria-hidden="true">↗</span></Link>
+        </div>
+      )}
+      {session && loading && <Busy>Cargando tus publicaciones…</Busy>}
+      {session && <Notice tone="error">{error}</Notice>}
+      {session && !loading && !error && publications.length > 0 && (
+        <>
+          <h2 className="my-publications-section-title">En tu cuenta</h2>
+          <div className="card-grid my-publications-grid">
+            {publications.map(({ kind, item }) => (
+              <PublicationCard
+                key={`${kind}-${item.id}`}
+                kind={kind}
+                item={item}
+                to={`/gestionar/${kind}/${item.id}`}
+                actionLabel="Administrar"
+              />
+            ))}
+          </div>
+        </>
+      )}
+      {session && !loading && !error && claimable.length > 0 && (
+        <>
+          <h2 className="my-publications-section-title">Publicaciones anteriores</h2>
+          <p className="my-claim-hint">Encontramos publicaciones antiguas con el mismo correo. Abre una tarjeta e ingresa su PIN para vincularla a tu cuenta.</p>
+          <div className="card-grid my-publications-grid">
+            {claimable.map((item) => (
+              <PublicationCard
+                key={`claim-${item.kind}-${item.id}`}
+                kind={item.kind}
+                item={item}
+                to={`/gestionar/${item.kind}/${item.id}`}
+                actionLabel="Reclamar con PIN"
+              />
+            ))}
+          </div>
+        </>
+      )}
+      {session && !loading && !error && localLegacy.length > 0 && (
+        <>
+          <h2 className="my-publications-section-title">Guardadas en este navegador</h2>
+          <p className="my-claim-hint">Estas referencias no coinciden con el correo de la cuenta. Reclama cada publicación con su PIN.</p>
+          <div className="card-grid my-publications-grid">
+            {localLegacy.map((item) => (
+              <PublicationCard
+                key={`local-${item.kind}-${item.id}`}
+                kind={item.kind}
+                item={item}
+                to={`/gestionar/${item.kind}/${item.id}`}
+                actionLabel="Abrir con PIN"
+              />
+            ))}
+          </div>
+        </>
+      )}
+      {session && !loading && !error && !publications.length && !claimable.length && !localLegacy.length && (
+        <div className="empty-state my-empty">
+          <span className="empty-illustration" aria-hidden="true">⌂</span>
+          <h2>Aún no tienes publicaciones</h2>
+          <p>Al publicar desde tu cuenta, podrás volver a encontrarlas aquí.</p>
           <Link className="button button-primary" to="/publicar">Crear una publicación <span aria-hidden="true">↗</span></Link>
         </div>
       )}
-      <p className="privacy-note my-privacy">La lista y sus vistas previas se guardan en este navegador. El PIN, el correo y la dirección privada nunca se guardan aquí.</p>
+      <p className="privacy-note my-privacy">Las publicaciones se asocian a tu cuenta. El PIN de los avisos anteriores solo se usa una vez para reclamarlos.</p>
     </section>
   );
 }
