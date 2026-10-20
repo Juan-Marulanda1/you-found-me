@@ -8,7 +8,11 @@ from uuid import uuid4
 
 from pydantic import ValidationError
 
-from app.core.exceptions import InvalidAdminPinError, TooManyAdminPinAttemptsError
+from app.core.exceptions import (
+    InvalidAdminPinError,
+    PublicationNotFoundError,
+    TooManyAdminPinAttemptsError,
+)
 from app.core.pin_limiter import PinAttemptLimiter
 from app.core.security import hash_admin_pin, verify_admin_pin
 from app.modules.announcement.enums import AnnouncementStatus
@@ -89,6 +93,30 @@ class InMemoryAnnouncementRepository:
             return self.announcement
         return None
 
+    def list_by_owner(self, owner_id):
+        if self.announcement and self.announcement.owner_id == owner_id:
+            return [self.announcement]
+        return []
+
+    def list_claimable_by_email(self, email):
+        if (
+            self.announcement
+            and self.announcement.owner_id is None
+            and self.announcement.contact_email
+            and self.announcement.contact_email.lower() == email.lower()
+        ):
+            return [self.announcement]
+        return []
+
+    def assign_owner(self, announcement_id, owner_id):
+        announcement = self.get_by_id(announcement_id)
+        if announcement is None or (
+            announcement.owner_id is not None and announcement.owner_id != owner_id
+        ):
+            return None
+        announcement.owner_id = owner_id
+        return announcement
+
     def list(self, **kwargs):
         if self.announcement is None:
             return PageResult(items=[], total=0)
@@ -143,6 +171,11 @@ class ManagementPinTests(unittest.TestCase):
         data["admin_pin"] = "1234"
         with self.assertRaises(ValidationError):
             AnnouncementCreate.model_validate(data)
+
+    def test_new_account_publication_does_not_require_a_pin(self):
+        data = self.announcement_data()
+        data.pop("admin_pin")
+        self.assertIsNone(AnnouncementCreate.model_validate(data).admin_pin)
 
     def test_product_create_contract(self):
         product = ProductCreate.model_validate(
@@ -314,12 +347,13 @@ class ManagementPinTests(unittest.TestCase):
         self.assertNotIn("address", public_data)
 
     def test_create_response_does_not_echo_private_contact_fields(self):
-        from app.core.publication_access import require_publication_creation_key
+        from app.core.supabase_auth import AuthenticatedUser, require_authenticated_user
         from app.modules.announcement.dependencies import get_announcement_service
 
         service = AnnouncementService(InMemoryAnnouncementRepository())
         self.app.dependency_overrides[get_announcement_service] = lambda: service
-        self.app.dependency_overrides[require_publication_creation_key] = lambda: None
+        owner = AuthenticatedUser(id=uuid4(), email="hola@horno.example")
+        self.app.dependency_overrides[require_authenticated_user] = lambda: owner
         payload = self.announcement_data()
         payload.update(contact_email="hola@horno.example", address="Laureles")
 
@@ -332,6 +366,18 @@ class ManagementPinTests(unittest.TestCase):
         self.assertIsNone(public_data["contact_phone"])
         self.assertNotIn("contact_email", public_data)
         self.assertNotIn("address", public_data)
+
+    def test_creating_publication_requires_an_authenticated_account(self):
+        payload = self.announcement_data()
+        status_code, response = call_asgi(
+            self.app,
+            "POST",
+            "/api/v1/announcements",
+            payload,
+        )
+
+        self.assertEqual(status_code, 401)
+        self.assertFalse(response["success"])
 
     def test_proxy_headers_are_trusted_only_from_configured_networks(self):
         from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
@@ -456,8 +502,48 @@ class ManagementPinTests(unittest.TestCase):
         service.delete(announcement.id, "654321")
         self.assertTrue(repository.deleted)
 
+    def test_account_owner_can_manage_without_pin_and_foreign_owner_cannot(self):
+        owner_id = uuid4()
+        other_owner_id = uuid4()
+        data = self.announcement_data()
+        data.pop("admin_pin")
+        repository = InMemoryAnnouncementRepository()
+        service = AnnouncementService(repository)
+        announcement = service.create(AnnouncementCreate.model_validate(data), owner_id)
+        announcement.id = uuid4()
+
+        managed = service.get_for_management(announcement.id, owner_id=owner_id)
+        self.assertEqual(managed.owner_id, owner_id)
+        self.assertIsNone(managed.admin_pin_hash)
+        with self.assertRaises(PublicationNotFoundError):
+            service.get_for_management(announcement.id, owner_id=other_owner_id)
+        with self.assertRaises(PublicationNotFoundError):
+            service.get_for_management(announcement.id, admin_pin="123456")
+
+    def test_legacy_announcement_can_be_claimed_once_after_pin_validation(self):
+        owner_id = uuid4()
+        repository = InMemoryAnnouncementRepository()
+        service = AnnouncementService(repository)
+        data = self.announcement_data()
+        data["contact_email"] = "owner@example.com"
+        announcement = service.create(AnnouncementCreate.model_validate(data))
+        announcement.id = uuid4()
+
+        claimed = service.claim(
+            announcement.id, "123456", owner_id, client_ip="127.0.0.1"
+        )
+        self.assertEqual(claimed.owner_id, owner_id)
+        self.assertEqual(service.list_by_owner(owner_id), [announcement])
+        self.assertEqual(service.list_claimable_by_email("owner@example.com"), [])
+
+        with self.assertRaises(PublicationNotFoundError):
+            service.claim(announcement.id, "123456", uuid4(), client_ip="127.0.0.1")
+
     def test_openapi_includes_both_listing_domains_and_management_routes(self):
         paths = self.app.openapi()["paths"]
+        self.assertIn("/api/v1/account-access/invite", paths)
+        self.assertIn("/api/v1/account-access/me/publications", paths)
+        self.assertIn("/api/v1/account-access/me/claim", paths)
         self.assertIn("/api/v1/announcements", paths)
         self.assertIn("/api/v1/announcements/{announcement_id}/manage", paths)
         self.assertIn("patch", paths["/api/v1/announcements/{announcement_id}"])
@@ -489,7 +575,14 @@ class ManagementPinTests(unittest.TestCase):
 
         self.assertCountEqual(
             registered_models.__all__,
-            ["Announcement", "AnnouncementImage", "Product", "ProductImage"],
+            [
+                "Announcement",
+                "AnnouncementImage",
+                "Product",
+                "ProductImage",
+                "PublicationInvitation",
+                "PublicationOwner",
+            ],
         )
         self.assertCountEqual(
             Base.metadata.tables,
@@ -498,6 +591,8 @@ class ManagementPinTests(unittest.TestCase):
                 "announcement_images",
                 "products",
                 "product_images",
+                "publication_invitations",
+                "publication_owners",
             ],
         )
 

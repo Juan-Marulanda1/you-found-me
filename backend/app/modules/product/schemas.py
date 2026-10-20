@@ -88,6 +88,7 @@ class ProductManagementResponse(BaseModel):
     address: str | None
     created_at: datetime
     updated_at: datetime
+    cover_image: ProductImageResponse | None = None
 
 
 class ProductDelete(AdminPinAuthSchema):

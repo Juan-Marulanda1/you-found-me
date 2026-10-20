@@ -34,7 +34,7 @@ uv sync
 Copy-Item .env.example .env # PowerShell; en macOS/Linux: cp .env.example .env
 ```
 
-Para iniciar PostgreSQL local desde la raíz del repositorio, ejecuta `docker compose --env-file backend/.env up -d database`. Los valores predeterminados del servicio son solo para desarrollo. Configura `DATABASE_URL` y `ALLOWED_ORIGINS` en `backend/.env`. Antes de actualizar una base de datos que ya tenga avisos, crea un respaldo. La migración actual transforma los PIN existentes en hashes y no permite volver automáticamente al esquema anterior.
+Para iniciar PostgreSQL local desde la raiz del repositorio, ejecuta docker compose --env-file backend/.env up -d database. Los valores predeterminados solo sirven para desarrollo. Configura DATABASE_URL y ALLOWED_ORIGINS en backend/.env. Antes de migrar una base que ya tenga avisos, crea un respaldo. La migracion de propiedad agrega el registro de invitaciones y owner_id nullable; no cambia ni borra avisos existentes. Sus PIN hashes quedan disponibles para reclamarlos.
 
 ```bash
 uv run alembic upgrade head
@@ -47,36 +47,41 @@ La API queda en `http://localhost:8000`; Swagger UI en `/docs` y ReDoc en `/redo
 
 Todas las rutas llevan el prefijo `/api/v1` y las respuestas usan `{ "success", "message", "data" }`.
 
-### Acceso para crear publicaciones
+### Cuentas, invitaciones y publicaciones propias
 
-`POST /publication-access/verify` valida el encabezado `X-Publication-Key`. El mismo encabezado es obligatorio para `POST /products` y `POST /announcements`. Configura `PUBLICATION_CREATION_KEY` solo en el entorno privado del backend; si no está configurada, esas operaciones responden `503`. Es una clave compartida para controlar quién puede crear, no una cuenta ni una identidad individual. No la incluyas en variables `VITE_*`, el código del frontend ni Git.
+PUBLICATION_CREATION_KEY se conserva como clave privada para solicitar una invitacion. POST /account-access/invite recibe X-Publication-Key y un correo; Supabase Auth envia el enlace. La clave nunca va en variables VITE_* ni queda guardada en el navegador.
 
-| Recurso | Método y ruta | Uso |
+POST /products y POST /announcements requieren Authorization: Bearer <access_token> y asocian cada nuevo registro al usuario autenticado. GET /account-access/me/publications lista las publicaciones de la cuenta y las antiguas que coincidan con el correo confirmado. POST /account-access/me/claim recibe kind, publication_id y el PIN existente; el backend solo asigna el registro despues de validar ese PIN.
+
+La API guarda los correos autorizados en publication_invitations y solo permite iniciar sesion con un correo verificado incluido alli. Esto tambien impide crear publicaciones con una cuenta que se registro directamente en Supabase. La nueva migracion conserva los avisos y sus hashes existentes, dejandolos sin asignar para que sus duenos los reclamen. Los nuevos registros se administran con la sesion del propietario. Los registros antiguos mantienen el PIN hasta reclamarse; al abrir uno con sesion y PIN valido se vincula a la cuenta. Para validar sesiones, el backend consulta Supabase Auth. Configura SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL y SUPABASE_AUTH_REDIRECT_URL en el entorno privado. Agrega la URL de redireccion permitida en Supabase Auth y deshabilita el auto-registro publico para que todas las cuentas pasen por invitacion.
+
+| Recurso | Metodo y ruta | Uso |
 | --- | --- | --- |
-| Anuncios | `POST /announcements` | Crear un anuncio de negocio o emprendimiento |
-| Anuncios | `GET /announcements` | Listar con filtros y paginación |
-| Anuncios | `GET /announcements/{id}` | Consultar un anuncio activo |
-| Imágenes de anuncios | `POST /announcements/{id}/images/upload-url` | Autorizar con PIN y emitir una carga firmada |
-| Imágenes de anuncios | `POST /announcements/{id}/images/{image_id}/complete` | Confirmar y publicar la imagen |
-| Imágenes de anuncios | `GET /announcements/{id}/images` | Consultar la imagen de un anuncio activo |
-| Imágenes de anuncios | `POST /announcements/{id}/images/manage` | Consultar la imagen con PIN |
-| Imágenes de anuncios | `DELETE /announcements/{id}/images/{image_id}` | Borrar la imagen con PIN |
-| Anuncios | `POST /announcements/{id}/manage` | Consultar datos privados y estados no activos con su PIN |
-| Anuncios | `PATCH /announcements/{id}` | Editar con su PIN |
-| Anuncios | `DELETE /announcements/{id}` | Borrar con su PIN |
-| Productos | `POST /products` | Crear un producto |
-| Productos | `GET /products` | Listar con filtros, paginación e imagen principal |
-| Productos | `GET /products/{id}` | Consultar un producto activo con su imagen principal |
-| Productos | `POST /products/{id}/manage` | Consultar datos privados y estados no activos con su PIN |
-| Productos | `PATCH /products/{id}` | Editar con su PIN |
-| Productos | `DELETE /products/{id}` | Borrar con su PIN |
-| Imágenes de productos | `POST /products/{id}/images/upload-url` | Autorizar con PIN y emitir una carga firmada |
-| Imágenes de productos | `POST /products/{id}/images/{image_id}/complete` | Confirmar y publicar una imagen cargada |
-| Imágenes de productos | `GET /products/{id}/images` | Listar imágenes de un producto activo |
-| Imágenes de productos | `POST /products/{id}/images/manage` | Listar imágenes, incluidas pendientes, con PIN |
-| Imágenes de productos | `DELETE /products/{id}/images/{image_id}` | Borrar o cancelar una imagen con PIN |
-
-Los listados públicos muestran solo publicaciones `ACTIVE` y aceptan `page` (empieza en 1), `page_size` (1–100, predeterminado 20), `city`, `category` y `search` (busca en título y descripción; en anuncios también en el nombre del negocio). Los productos aceptan además `min_price` y `max_price`. La respuesta de lista incluye `items`, `page`, `page_size`, `total` y `pages`. Cada producto y anuncio incluye `cover_image`: la primera imagen confirmada o `null`. El catálogo obtiene las portadas con una sola consulta adicional por página y evita solicitudes por cada tarjeta. No se pueden filtrar publicaciones pausadas o cerradas desde las rutas públicas.
+| Cuentas | POST /account-access/invite | Enviar invitacion con X-Publication-Key |
+| Cuentas | GET /account-access/me/publications | Listar propias y antiguas reclamables; requiere sesion |
+| Cuentas | POST /account-access/me/claim | Reclamar antigua validando el PIN; requiere sesion |
+| Anuncios | POST /announcements | Crear con sesion autenticada |
+| Anuncios | GET /announcements | Listar avisos activos |
+| Anuncios | GET /announcements/{id} | Consultar aviso activo |
+| Anuncios | POST /announcements/{id}/manage | Consultar datos privados; propietario o PIN de aviso antiguo |
+| Anuncios | PATCH /announcements/{id} | Editar; propietario o PIN de aviso antiguo |
+| Anuncios | DELETE /announcements/{id} | Borrar; propietario o PIN de aviso antiguo |
+| Imagen de aviso | POST /announcements/{id}/images/upload-url | Autorizar con sesion del propietario o PIN antiguo |
+| Imagen de aviso | POST /announcements/{id}/images/{image_id}/complete | Confirmar carga con sesion o PIN antiguo |
+| Imagen de aviso | GET /announcements/{id}/images | Listar imagenes de aviso activo |
+| Imagen de aviso | POST /announcements/{id}/images/manage | Administrar imagenes con sesion o PIN antiguo |
+| Imagen de aviso | DELETE /announcements/{id}/images/{image_id} | Borrar imagen con sesion o PIN antiguo |
+| Productos | POST /products | Crear con sesion autenticada |
+| Productos | GET /products | Listar productos activos |
+| Productos | GET /products/{id} | Consultar producto activo |
+| Productos | POST /products/{id}/manage | Consultar datos privados; propietario o PIN de publicacion antigua |
+| Productos | PATCH /products/{id} | Editar; propietario o PIN de publicacion antigua |
+| Productos | DELETE /products/{id} | Borrar; propietario o PIN de publicacion antigua |
+| Imagenes de productos | POST /products/{id}/images/upload-url | Autorizar con sesion del propietario o PIN antiguo |
+| Imagenes de productos | POST /products/{id}/images/{image_id}/complete | Confirmar carga con sesion o PIN antiguo |
+| Imagenes de productos | GET /products/{id}/images | Listar imagenes de producto activo |
+| Imagenes de productos | POST /products/{id}/images/manage | Administrar imagenes con sesion o PIN antiguo |
+| Imagenes de productos | DELETE /products/{id}/images/{image_id} | Borrar imagen con sesion o PIN antiguo |
 
 ### Crear un anuncio
 
@@ -140,7 +145,9 @@ Configura en `backend/.env`:
 
 | Parámetro | Valor | Función |
 | --- | --- | --- |
-| `SUPABASE_URL` | URL del proyecto, por ejemplo `https://<project-ref>.supabase.co` | Dirección base de la API de Storage. |
+| SUPABASE_URL | URL del proyecto Supabase | Base de Auth y Storage. |
+| SUPABASE_PUBLISHABLE_KEY | Clave publicable del proyecto | Identifica el proyecto al verificar la sesion del usuario. |
+| SUPABASE_AUTH_REDIRECT_URL | URL permitida de frontend, por ejemplo http://localhost:5173/cuenta | Destino del enlace de invitacion. |
 | `SUPABASE_SECRET_KEY` | Clave secreta del backend de Supabase (`sb_secret_...`) | Firma cargas y elimina archivos. Nunca debe incluirse en el frontend ni en Git. |
 | `SUPABASE_PRODUCT_IMAGES_BUCKET` | `product-images` | Nombre exacto del bucket que creaste. |
 | `PRODUCT_IMAGE_MAX_BYTES` | `5242880` | Límite de tamaño validado por la API en bytes (5 MiB). |
@@ -149,16 +156,16 @@ Configura en `backend/.env`:
 
 Flujo del cliente:
 
-1. Para un producto, enviar a `POST /products/{id}/images/upload-url`; para un anuncio, a `POST /announcements/{id}/images/upload-url`. En ambos casos incluir el PIN, `content_type`, `size_bytes` y opcionalmente `alt_text`. Guardar temporalmente el `id`, `bucket`, `path` y `token` recibidos. La respuesta incluye `signed_upload_url` para clientes que prefieran usar la URL firmada directamente.
+1. Para un producto, solicitar POST /products/{id}/images/upload-url; para un aviso, POST /announcements/{id}/images/upload-url. Incluir content_type, size_bytes y, opcionalmente, alt_text. La API autoriza con la sesion del propietario o con el PIN si el registro antiguo aun no se reclama.
 2. Con el cliente JavaScript de Supabase configurado con `SUPABASE_URL` y la clave pública `anon`/publishable del proyecto, subir el archivo con `supabase.storage.from(bucket).uploadToSignedUrl(path, token, file, { contentType: file.type, upsert: false })`. No usar la clave secreta del servidor en el navegador. Supabase indica que el token de carga vence en dos horas.
-3. Llamar a `POST /products/{id}/images/{image_id}/complete` o `POST /announcements/{id}/images/{image_id}/complete` con el PIN. El servidor verifica que el objeto exista y que el tipo y tamaño coincidan antes de marcarlo como público.
-4. Consultar `GET /products/{id}/images` o `GET /announcements/{id}/images` para obtener las URLs públicas de las imágenes confirmadas. En “Tus publicaciones”, usar la ruta `/images/manage` correspondiente con el PIN para ver imágenes y cargas pendientes, incluso si la publicación no está activa. Si se abandona una carga, usar la ruta `DELETE /.../images/{image_id}` de productos o anuncios con el PIN para liberar el cupo.
+3. Llamar a POST /products/{id}/images/{image_id}/complete o POST /announcements/{id}/images/{image_id}/complete con la sesion del propietario o, para registros antiguos no reclamados, con el PIN. La API verifica que el objeto exista y que coincidan el tipo y el tamano antes de publicarlo.
+4. Consultar GET /products/{id}/images o GET /announcements/{id}/images para obtener las URLs de imagenes confirmadas. Para ver cargas pendientes o borrar una imagen, usar las rutas /images/manage y DELETE /images/{image_id} con la sesion del propietario o el PIN antiguo.
 
-El permiso público del bucket permite leer cualquier imagen cuyo URL se conozca; el PIN y la URL firmada controlan la carga, y el backend controla el borrado. Mantén el límite del bucket igual o menor que `PRODUCT_IMAGE_MAX_BYTES` y que el límite global configurado en Supabase. Si `SUPABASE_URL` o la clave están vacíos, las rutas de carga responden `503` y el resto de la API sigue funcionando. Los proyectos que aún usan la clave antigua pueden ponerla en `SUPABASE_SERVICE_ROLE_KEY`; al migrar, usa `SUPABASE_SECRET_KEY`.
+El permiso publico del bucket permite leer cualquier imagen cuyo URL se conozca; una URL firmada controla la carga y la API autoriza las operaciones con sesion de propietario o con el PIN de avisos antiguos. Mantener el limite del bucket igual o menor que PRODUCT_IMAGE_MAX_BYTES y el limite global de Supabase. Si SUPABASE_URL o las claves requeridas estan vacias, las operaciones relacionadas responden 503. Los proyectos que aun usan la clave anterior pueden ponerla en SUPABASE_SERVICE_ROLE_KEY; al migrar, usar SUPABASE_SECRET_KEY.
 
 ### Sección “Tus publicaciones”
 
-El PIN es individual para cada anuncio o producto. “Tus publicaciones” guarda localmente el tipo, identificador y una vista previa pública para mostrar las mismas tarjetas del catálogo. Actualiza los datos de publicaciones activas desde la API; para abrir la edición y acceder a publicaciones no activas, solicita el PIN y lo envía a `POST /{id}/manage`. No guardes el PIN ni información de contacto privada en el navegador. La lista solo existe en ese dispositivo; borrar los datos locales elimina las referencias, aunque las publicaciones siguen en la API.
+Tus publicaciones consulta la API con la cuenta autenticada y esta disponible en otros dispositivos. Las publicaciones antiguas que coincidan con el correo verificado se muestran para reclamarlas con el PIN. Las antiguas sin correo coincidente se pueden abrir desde una referencia local que ya exista y reclamar con su PIN. El PIN nunca se guarda en el navegador.
 
 El servidor usa `request.client.host` después de que Uvicorn valide los encabezados del proxy. Ejecuta `uv run task start` en producción para que la configuración de la aplicación se aplique a Uvicorn; en un contenedor configura también `HOST=0.0.0.0`. Configura `FORWARDED_ALLOW_IPS` en el entorno de ejecución con las IP/CIDR exactas de los proxies confiables. No uses `*` en producción: la aplicación rechaza ese valor porque permitiría falsificar `X-Forwarded-For` si el backend fuera accesible fuera del proxy. Si el proxy cambia o escala, actualiza esa lista en el despliegue.
 

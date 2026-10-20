@@ -3,9 +3,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Request, status
 
 from app.core.pagination import PageData, build_page
-from app.core.publication_access import require_publication_creation_key
 from app.core.request import get_client_ip
 from app.core.responses import DataResponse
+from app.core.supabase_auth import (
+    AuthenticatedUser,
+    optional_authenticated_user,
+    require_authenticated_user,
+)
 
 from .dependencies import get_announcement_image_service, get_announcement_service
 from .enums import AnnouncementStatus
@@ -35,14 +39,15 @@ router = APIRouter(prefix="/announcements", tags=["Announcements"])
     "",
     response_model=DataResponse[AnnouncementResponse],
     status_code=201,
-    dependencies=[Depends(require_publication_creation_key)],
 )
 def create_announcement(
     data: AnnouncementCreate,
+    user: AuthenticatedUser = Depends(require_authenticated_user),
     service: AnnouncementService = Depends(get_announcement_service),
 ):
     return DataResponse[AnnouncementResponse](
-        message="Announcement created successfully.", data=service.create(data)
+        message="Announcement created successfully.",
+        data=service.create(data, user.id),
     )
 
 
@@ -69,7 +74,15 @@ def list_announcements(
     )
     items = [
         AnnouncementResponse.model_validate(announcement).model_copy(
-            update={"cover_image": cover_images.get(announcement.id)}
+            update={
+                "cover_image": (
+                    AnnouncementImageResponse.model_validate(
+                        cover_images[announcement.id]
+                    )
+                    if announcement.id in cover_images
+                    else None
+                )
+            }
         )
         for announcement in result.items
     ]
@@ -86,9 +99,8 @@ def get_announcement(
     image_service: AnnouncementImageService = Depends(get_announcement_image_service),
 ):
     announcement = service.get_public_by_id(announcement_id)
-    cover_image = image_service.list_cover_images([announcement.id]).get(
-        announcement.id
-    )
+    cover = image_service.list_cover_images([announcement.id]).get(announcement.id)
+    cover_image = AnnouncementImageResponse.model_validate(cover) if cover else None
     return DataResponse[AnnouncementResponse](
         message="Announcement retrieved successfully.",
         data=AnnouncementResponse.model_validate(announcement).model_copy(
@@ -105,12 +117,16 @@ def get_announcement_for_management(
     announcement_id: UUID,
     data: AnnouncementManageRequest,
     request: Request,
+    user: AuthenticatedUser | None = Depends(optional_authenticated_user),
     service: AnnouncementService = Depends(get_announcement_service),
 ):
     return DataResponse[AnnouncementManagementResponse](
         message="Announcement management access granted.",
         data=service.get_for_management(
-            announcement_id, data.admin_pin, get_client_ip(request)
+            announcement_id,
+            data.admin_pin,
+            get_client_ip(request),
+            user.id if user else None,
         ),
     )
 
@@ -123,11 +139,14 @@ def update_announcement(
     announcement_id: UUID,
     data: AnnouncementUpdate,
     request: Request,
+    user: AuthenticatedUser | None = Depends(optional_authenticated_user),
     service: AnnouncementService = Depends(get_announcement_service),
 ):
     return DataResponse[AnnouncementManagementResponse](
         message="Announcement updated successfully.",
-        data=service.update(announcement_id, data, get_client_ip(request)),
+        data=service.update(
+            announcement_id, data, get_client_ip(request), user.id if user else None
+        ),
     )
 
 
@@ -140,6 +159,7 @@ def delete_announcement(
     announcement_id: UUID,
     data: AnnouncementDelete,
     request: Request,
+    user: AuthenticatedUser | None = Depends(optional_authenticated_user),
     service: AnnouncementService = Depends(get_announcement_service),
     image_service: AnnouncementImageService = Depends(get_announcement_image_service),
 ):
@@ -148,6 +168,7 @@ def delete_announcement(
         data.admin_pin,
         get_client_ip(request),
         before_delete=image_service.remove_announcement_files,
+        owner_id=user.id if user else None,
     )
     return DataResponse[None](message="Announcement deleted successfully.")
 
@@ -161,11 +182,15 @@ def create_announcement_image_upload(
     announcement_id: UUID,
     data: AnnouncementImageUploadRequest,
     request: Request,
+    user: AuthenticatedUser | None = Depends(optional_authenticated_user),
     service: AnnouncementService = Depends(get_announcement_service),
     image_service: AnnouncementImageService = Depends(get_announcement_image_service),
 ):
     announcement = service.get_for_management(
-        announcement_id, data.admin_pin, get_client_ip(request)
+        announcement_id,
+        data.admin_pin,
+        get_client_ip(request),
+        user.id if user else None,
     )
     upload = image_service.create_upload(announcement, data)
     return DataResponse[AnnouncementImageUploadResponse](
@@ -182,10 +207,16 @@ def complete_announcement_image_upload(
     image_id: UUID,
     data: AnnouncementImageCompleteRequest,
     request: Request,
+    user: AuthenticatedUser | None = Depends(optional_authenticated_user),
     service: AnnouncementService = Depends(get_announcement_service),
     image_service: AnnouncementImageService = Depends(get_announcement_image_service),
 ):
-    service.get_for_management(announcement_id, data.admin_pin, get_client_ip(request))
+    service.get_for_management(
+        announcement_id,
+        data.admin_pin,
+        get_client_ip(request),
+        user.id if user else None,
+    )
     image = image_service.complete(announcement_id, image_id)
     return DataResponse[AnnouncementImageResponse](
         message="Announcement image is ready.", data=image
@@ -216,10 +247,16 @@ def list_announcement_images_for_management(
     announcement_id: UUID,
     data: AnnouncementImageCompleteRequest,
     request: Request,
+    user: AuthenticatedUser | None = Depends(optional_authenticated_user),
     service: AnnouncementService = Depends(get_announcement_service),
     image_service: AnnouncementImageService = Depends(get_announcement_image_service),
 ):
-    service.get_for_management(announcement_id, data.admin_pin, get_client_ip(request))
+    service.get_for_management(
+        announcement_id,
+        data.admin_pin,
+        get_client_ip(request),
+        user.id if user else None,
+    )
     return DataResponse[list[AnnouncementImageManagementResponse]](
         message="Announcement images retrieved for management.",
         data=image_service.list_management(announcement_id),
@@ -235,9 +272,15 @@ def delete_announcement_image(
     image_id: UUID,
     data: AnnouncementImageDeleteRequest,
     request: Request,
+    user: AuthenticatedUser | None = Depends(optional_authenticated_user),
     service: AnnouncementService = Depends(get_announcement_service),
     image_service: AnnouncementImageService = Depends(get_announcement_image_service),
 ):
-    service.get_for_management(announcement_id, data.admin_pin, get_client_ip(request))
+    service.get_for_management(
+        announcement_id,
+        data.admin_pin,
+        get_client_ip(request),
+        user.id if user else None,
+    )
     image_service.delete(announcement_id, image_id)
     return DataResponse[None](message="Announcement image deleted successfully.")

@@ -66,7 +66,8 @@ class MarketplaceMigrationTests(unittest.TestCase):
                     connection.execute(
                         text(
                             """
-                        SELECT category, status, admin_pin_hash, contact_phone_public
+                        SELECT category, status, admin_pin_hash,
+                               contact_phone_public, owner_id
                         FROM announcements ORDER BY title
                         """
                         )
@@ -82,6 +83,7 @@ class MarketplaceMigrationTests(unittest.TestCase):
                 self.assertTrue(
                     all(row["contact_phone_public"] is False for row in rows)
                 )
+                self.assertTrue(all(row["owner_id"] is None for row in rows))
                 self.assertEqual(
                     connection.execute(
                         text("SELECT to_regclass('products')")
@@ -99,6 +101,18 @@ class MarketplaceMigrationTests(unittest.TestCase):
                         text("SELECT to_regclass('announcement_images')")
                     ).scalar_one(),
                     "announcement_images",
+                )
+                self.assertEqual(
+                    connection.execute(
+                        text("SELECT to_regclass('publication_owners')")
+                    ).scalar_one(),
+                    "publication_owners",
+                )
+                self.assertEqual(
+                    connection.execute(
+                        text("SELECT to_regclass('publication_invitations')")
+                    ).scalar_one(),
+                    "publication_invitations",
                 )
                 image_columns = {
                     row["column_name"]

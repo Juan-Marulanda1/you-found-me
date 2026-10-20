@@ -4,9 +4,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from app.core.pagination import PageData, build_page
-from app.core.publication_access import require_publication_creation_key
 from app.core.request import get_client_ip
 from app.core.responses import DataResponse
+from app.core.supabase_auth import (
+    AuthenticatedUser,
+    optional_authenticated_user,
+    require_authenticated_user,
+)
 
 from .dependencies import get_product_image_service, get_product_service
 from .enums import ProductStatus
@@ -36,14 +40,14 @@ router = APIRouter(prefix="/products", tags=["Products"])
     "",
     response_model=DataResponse[ProductResponse],
     status_code=201,
-    dependencies=[Depends(require_publication_creation_key)],
 )
 def create_product(
     data: ProductCreate,
+    user: AuthenticatedUser = Depends(require_authenticated_user),
     service: ProductService = Depends(get_product_service),
 ):
     return DataResponse[ProductResponse](
-        message="Product created successfully.", data=service.create(data)
+        message="Product created successfully.", data=service.create(data, user.id)
     )
 
 
@@ -79,7 +83,13 @@ def list_products(
     )
     items = [
         ProductResponse.model_validate(product).model_copy(
-            update={"cover_image": cover_images.get(product.id)}
+            update={
+                "cover_image": (
+                    ProductImageResponse.model_validate(cover_images[product.id])
+                    if product.id in cover_images
+                    else None
+                )
+            }
         )
         for product in result.items
     ]
@@ -96,7 +106,8 @@ def get_product(
     image_service: ProductImageService = Depends(get_product_image_service),
 ):
     product = service.get_public_by_id(product_id)
-    cover_image = image_service.list_cover_images([product.id]).get(product.id)
+    cover = image_service.list_cover_images([product.id]).get(product.id)
+    cover_image = ProductImageResponse.model_validate(cover) if cover else None
     return DataResponse[ProductResponse](
         message="Product retrieved successfully.",
         data=ProductResponse.model_validate(product).model_copy(
@@ -113,12 +124,16 @@ def get_product_for_management(
     product_id: UUID,
     data: ProductManageRequest,
     request: Request,
+    user: AuthenticatedUser | None = Depends(optional_authenticated_user),
     service: ProductService = Depends(get_product_service),
 ):
     return DataResponse[ProductManagementResponse](
         message="Product management access granted.",
         data=service.get_for_management(
-            product_id, data.admin_pin, get_client_ip(request)
+            product_id,
+            data.admin_pin,
+            get_client_ip(request),
+            user.id if user else None,
         ),
     )
 
@@ -128,6 +143,7 @@ def update_product(
     product_id: UUID,
     data: ProductUpdate,
     request: Request,
+    user: AuthenticatedUser | None = Depends(optional_authenticated_user),
     service: ProductService = Depends(get_product_service),
 ):
     return DataResponse[ProductManagementResponse](
@@ -136,6 +152,7 @@ def update_product(
             product_id,
             data,
             get_client_ip(request),
+            user.id if user else None,
         ),
     )
 
@@ -147,6 +164,7 @@ def delete_product(
     product_id: UUID,
     data: ProductDelete,
     request: Request,
+    user: AuthenticatedUser | None = Depends(optional_authenticated_user),
     service: ProductService = Depends(get_product_service),
     image_service: ProductImageService = Depends(get_product_image_service),
 ):
@@ -155,6 +173,7 @@ def delete_product(
         data.admin_pin,
         get_client_ip(request),
         before_delete=image_service.remove_product_files,
+        owner_id=user.id if user else None,
     )
     return DataResponse[None](message="Product deleted successfully.")
 
@@ -168,11 +187,12 @@ def create_product_image_upload(
     product_id: UUID,
     data: ProductImageUploadRequest,
     request: Request,
+    user: AuthenticatedUser | None = Depends(optional_authenticated_user),
     product_service: ProductService = Depends(get_product_service),
     image_service: ProductImageService = Depends(get_product_image_service),
 ):
     product = product_service.get_for_management(
-        product_id, data.admin_pin, get_client_ip(request)
+        product_id, data.admin_pin, get_client_ip(request), user.id if user else None
     )
     upload = image_service.create_upload(product, data)
     return DataResponse[ProductImageUploadResponse](
@@ -189,11 +209,12 @@ def complete_product_image_upload(
     image_id: UUID,
     data: ProductImageCompleteRequest,
     request: Request,
+    user: AuthenticatedUser | None = Depends(optional_authenticated_user),
     product_service: ProductService = Depends(get_product_service),
     image_service: ProductImageService = Depends(get_product_image_service),
 ):
     product_service.get_for_management(
-        product_id, data.admin_pin, get_client_ip(request)
+        product_id, data.admin_pin, get_client_ip(request), user.id if user else None
     )
     image = image_service.complete(product_id, image_id)
     return DataResponse[ProductImageResponse](
@@ -225,11 +246,12 @@ def list_product_images_for_management(
     product_id: UUID,
     data: ProductImageCompleteRequest,
     request: Request,
+    user: AuthenticatedUser | None = Depends(optional_authenticated_user),
     product_service: ProductService = Depends(get_product_service),
     image_service: ProductImageService = Depends(get_product_image_service),
 ):
     product_service.get_for_management(
-        product_id, data.admin_pin, get_client_ip(request)
+        product_id, data.admin_pin, get_client_ip(request), user.id if user else None
     )
     return DataResponse[list[ProductImageManagementResponse]](
         message="Product images retrieved for management.",
@@ -246,11 +268,12 @@ def delete_product_image(
     image_id: UUID,
     data: ProductImageDeleteRequest,
     request: Request,
+    user: AuthenticatedUser | None = Depends(optional_authenticated_user),
     product_service: ProductService = Depends(get_product_service),
     image_service: ProductImageService = Depends(get_product_image_service),
 ):
     product_service.get_for_management(
-        product_id, data.admin_pin, get_client_ip(request)
+        product_id, data.admin_pin, get_client_ip(request), user.id if user else None
     )
     image_service.delete(product_id, image_id)
     return DataResponse[None](message="Product image deleted successfully.")

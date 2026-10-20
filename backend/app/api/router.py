@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 
 from app.core.publication_access import require_publication_creation_key
 from app.core.responses import DataResponse
+from app.modules.account.routes import router as account_router
 from app.modules.announcement.routes import router as announcement_router
 from app.modules.product.routes import router as product_router
 
@@ -19,3 +20,4 @@ def verify_publication_access():
 
 router.include_router(announcement_router)
 router.include_router(product_router)
+router.include_router(account_router)

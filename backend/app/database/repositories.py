@@ -2,10 +2,11 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.database.base import Base
+from app.database.owner import PublicationOwner
 from app.modules.publication.repository import PageResult
 
 
@@ -17,6 +18,10 @@ class SQLAlchemyPublicationRepository[Entity: Base]:
         self.model = model
 
     def create(self, publication: Entity) -> Entity:
+        owner_id = getattr(publication, "owner_id", None)
+        if owner_id is not None and self.db.get(PublicationOwner, owner_id) is None:
+            self.db.add(PublicationOwner(id=owner_id))
+            self.db.flush()
         self.db.add(publication)
         try:
             self.db.commit()
@@ -30,6 +35,53 @@ class SQLAlchemyPublicationRepository[Entity: Base]:
         return self.db.scalar(
             select(self.model).where(self.model.id == publication_id)  # type: ignore[attr-defined]
         )
+
+    def list_by_owner(self, owner_id: UUID) -> list[Entity]:
+        return list(
+            self.db.scalars(
+                select(self.model)
+                .where(self.model.owner_id == owner_id)  # type: ignore[attr-defined]
+                .order_by(self.model.created_at.desc())  # type: ignore[attr-defined]
+            )
+        )
+
+    def list_claimable_by_email(self, email: str) -> list[Entity]:
+        return list(
+            self.db.scalars(
+                select(self.model)
+                .where(
+                    self.model.owner_id.is_(None),  # type: ignore[attr-defined]
+                    func.lower(self.model.contact_email) == email.lower(),  # type: ignore[attr-defined]
+                )
+                .order_by(self.model.created_at.desc())  # type: ignore[attr-defined]
+            )
+        )
+
+    def assign_owner(self, publication_id: UUID, owner_id: UUID) -> Entity | None:
+        publication = self.get_by_id(publication_id)
+        if publication is None:
+            return None
+        current_owner = getattr(publication, "owner_id", None)
+        if current_owner is not None and current_owner != owner_id:
+            return None
+        if self.db.get(PublicationOwner, owner_id) is None:
+            self.db.add(PublicationOwner(id=owner_id))
+            self.db.flush()
+        if current_owner is None:
+            result = self.db.execute(
+                update(self.model)
+                .where(
+                    self.model.id == publication_id,  # type: ignore[attr-defined]
+                    self.model.owner_id.is_(None),  # type: ignore[attr-defined]
+                )
+                .values(owner_id=owner_id)
+            )
+            if result.rowcount != 1:
+                self.db.rollback()
+                return None
+            self.db.commit()
+            return self.get_by_id(publication_id)
+        return publication
 
     def list(
         self,

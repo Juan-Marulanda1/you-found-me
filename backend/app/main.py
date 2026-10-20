@@ -17,7 +17,7 @@ app.add_middleware(
     allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=False,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "X-Publication-Key"],
+    allow_headers=["Content-Type", "X-Publication-Key", "Authorization"],
 )
 
 register_exception_handlers(app)

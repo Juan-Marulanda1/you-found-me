@@ -6,7 +6,9 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 class AdminPinCreateSchema(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    admin_pin: str = Field(min_length=6, max_length=12, pattern=r"^\d{6,12}$")
+    admin_pin: str | None = Field(
+        default=None, min_length=6, max_length=12, pattern=r"^\d{6,12}$"
+    )
 
 
 class PublicationCreateSchema(AdminPinCreateSchema):
@@ -19,7 +21,9 @@ class AdminPinAuthSchema(BaseModel):
 
     # Four-digit values remain accepted so records created by the first API
     # version can still be managed after their hashes are migrated.
-    admin_pin: str = Field(min_length=4, max_length=12, pattern=r"^\d{4,12}$")
+    admin_pin: str | None = Field(
+        default=None, min_length=4, max_length=12, pattern=r"^\d{4,12}$"
+    )
 
 
 class PublicationUpdateSchema(AdminPinAuthSchema):

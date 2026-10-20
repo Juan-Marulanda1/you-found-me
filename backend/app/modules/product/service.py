@@ -24,11 +24,12 @@ class ProductService:
         self.repository = repository
         self.limiter = limiter
 
-    def create(self, data: ProductCreate) -> Product:
+    def create(self, data: ProductCreate, owner_id: UUID | None = None) -> Product:
         values = data.model_dump(exclude={"admin_pin"})
         product = Product(
             **values,
-            admin_pin_hash=hash_admin_pin(data.admin_pin),
+            admin_pin_hash=hash_admin_pin(data.admin_pin) if data.admin_pin else None,
+            owner_id=owner_id,
             status=ProductStatus.ACTIVE,
         )
         return self.repository.create(product)
@@ -46,11 +47,35 @@ class ProductService:
         return product
 
     def get_for_management(
-        self, product_id: UUID, admin_pin: str, client_ip: str = "unknown"
+        self,
+        product_id: UUID,
+        admin_pin: str | None = None,
+        client_ip: str = "unknown",
+        owner_id: UUID | None = None,
     ) -> Product:
         product = self.get_by_id(product_id)
-        self._validate_pin(product, admin_pin, client_ip)
+        self._authorize(product, admin_pin, client_ip, owner_id)
         return product
+
+    def list_by_owner(self, owner_id: UUID) -> list[Product]:
+        return self.repository.list_by_owner(owner_id)
+
+    def list_claimable_by_email(self, email: str) -> list[Product]:
+        return self.repository.list_claimable_by_email(email)
+
+    def claim(
+        self, product_id: UUID, admin_pin: str, owner_id: UUID, client_ip: str
+    ) -> Product:
+        product = self.get_by_id(product_id)
+        if product.owner_id == owner_id:
+            return product
+        if product.owner_id is not None:
+            raise PublicationNotFoundError()
+        self._validate_pin(product, admin_pin, client_ip)
+        claimed = self.repository.assign_owner(product_id, owner_id)
+        if claimed is None:
+            raise PublicationNotFoundError()
+        return claimed
 
     def list(
         self,
@@ -80,9 +105,10 @@ class ProductService:
         product_id: UUID,
         data: ProductUpdate,
         client_ip: str = "unknown",
+        owner_id: UUID | None = None,
     ) -> Product:
         product = self.get_by_id(product_id)
-        self._validate_pin(product, data.admin_pin, client_ip)
+        self._authorize(product, data.admin_pin, client_ip, owner_id)
 
         updates = data.model_dump(
             exclude_unset=True, exclude={"admin_pin", "new_admin_pin"}
@@ -96,20 +122,38 @@ class ProductService:
     def delete(
         self,
         product_id: UUID,
-        admin_pin: str,
+        admin_pin: str | None,
         client_ip: str = "unknown",
         before_delete: Callable[[UUID], None] | None = None,
+        owner_id: UUID | None = None,
     ) -> None:
         product = self.get_by_id(product_id)
-        self._validate_pin(product, admin_pin, client_ip)
+        self._authorize(product, admin_pin, client_ip, owner_id)
         if before_delete is not None:
             before_delete(product_id)
         self.repository.delete(product)
 
     def _validate_pin(self, product: Product, admin_pin: str, client_ip: str) -> None:
         self.limiter.check("product", product.id, client_ip)
-        if not verify_admin_pin(admin_pin, product.admin_pin_hash):
+        if not product.admin_pin_hash or not verify_admin_pin(
+            admin_pin, product.admin_pin_hash
+        ):
             self.limiter.record_failure("product", product.id, client_ip)
             logger.warning("Invalid management PIN for product %s", product.id)
             raise InvalidAdminPinError()
         self.limiter.record_success("product", product.id, client_ip)
+
+    def _authorize(
+        self,
+        product: Product,
+        admin_pin: str | None,
+        client_ip: str,
+        owner_id: UUID | None,
+    ) -> None:
+        if product.owner_id is not None:
+            if product.owner_id != owner_id:
+                raise PublicationNotFoundError()
+            return
+        if not admin_pin:
+            raise InvalidAdminPinError()
+        self._validate_pin(product, admin_pin, client_ip)
