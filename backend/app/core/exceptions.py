@@ -1,4 +1,9 @@
+"""Errores de dominio que los manejadores globales convierten en JSON."""
+
+
 class AppException(Exception):
+    """Base de los errores esperados; define el código HTTP y el mensaje público."""
+
     status_code = 400
     detail = "Application error"
 
@@ -6,10 +11,6 @@ class AppException(Exception):
 class PublicationNotFoundError(AppException):
     status_code = 404
     detail = "Publication not found"
-
-
-class AnnouncementNotFoundError(PublicationNotFoundError):
-    detail = "Announcement not found"
 
 
 class InvalidAdminPinError(AppException):
