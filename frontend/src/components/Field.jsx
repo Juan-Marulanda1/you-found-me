@@ -1,3 +1,5 @@
+// Campo de formulario con etiqueta, marca de obligatorio y ayuda opcional.
+// `as` permite usar textarea u otro elemento; el resto de props llega al control.
 export default function Field({ label, name, value, onChange, as = 'input', hint, required, ...props }) {
   const Element = as;
   return (

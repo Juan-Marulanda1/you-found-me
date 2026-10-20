@@ -12,6 +12,7 @@ import { supabase } from './services/supabase.js';
 // Comparte la sesión de Supabase con las páginas que publican o administran.
 export const AuthContext = createContext({ session: null });
 
+// Estructura común: cabecera con navegación según la sesión, contenido y pie.
 function SiteLayout() {
   const { session } = useContext(AuthContext);
   return (
@@ -54,6 +55,7 @@ export default function App() {
 
   return (
     <AuthContext.Provider value={{ session }}>
+      {/* Si agregas una ruta, configura el hosting para servir index.html en ella. */}
       <Routes>
         <Route element={<SiteLayout />}>
           <Route index element={<CatalogPage />} />

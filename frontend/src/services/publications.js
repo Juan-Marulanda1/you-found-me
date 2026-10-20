@@ -26,12 +26,14 @@ export const createPublication = (kind, body) => request(endpoints[kind], {
 export const requestAccountInvitation = (email, key) => request('/account-access/invite', {
   method: 'POST', body: { email }, headers: { 'X-Publication-Key': key },
 });
+// Publicaciones propias y antiguas reclamables de la cuenta autenticada.
 export const getMyPublications = () => request('/account-access/me/publications');
 export const claimLegacyPublication = (kind, publicationId, adminPin) => request(
   '/account-access/me/claim', {
     method: 'POST', body: { kind, publication_id: publicationId, admin_pin: adminPin },
   },
 );
+// Las rutas de gestión envían el PIN solo si existe; con sesión basta el token.
 export const getPublicationForManagement = (kind, id, adminPin) => request(
   `${endpoints[kind]}/${id}/manage`, {
     method: 'POST', body: adminPin ? { admin_pin: adminPin } : {},

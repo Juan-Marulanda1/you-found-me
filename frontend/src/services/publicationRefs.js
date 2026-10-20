@@ -38,6 +38,7 @@ function sanitizePreview(value) {
   return preview;
 }
 
+// Lee y sanea las referencias; un valor corrupto en localStorage devuelve una lista vacía.
 export function getPublicationRefs() {
   try {
     const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
@@ -54,6 +55,7 @@ export function getPublicationRefs() {
   }
 }
 
+// Guarda o actualiza la referencia al inicio de la lista, conservando la vista previa previa.
 export function rememberPublication(kind, id, publication) {
   const current = getPublicationRefs();
   const existing = current.find((item) => item.kind === kind && item.id === id);

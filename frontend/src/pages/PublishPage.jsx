@@ -4,8 +4,9 @@ import Field from '../components/Field.jsx';
 import { Notice } from '../components/Feedback.jsx';
 import { AuthContext } from '../App.jsx';
 import { createPublication } from '../services/publications.js';
-import { uploadPublicationImage } from '../services/imageUpload.js';
+import { ACCEPTED_IMAGE_TYPES, maxImagesFor, uploadPublicationImage } from '../services/imageUpload.js';
 import { rememberPublication } from '../services/publicationRefs.js';
+import { publicationPath } from '../utils/routes.js';
 
 const initialForm = {
   title: '', description: '', category: '', price: '', quantity: '', currency: 'COP',
@@ -13,6 +14,7 @@ const initialForm = {
   contact_email: '', city: '', address: '', contact_phone_public: false,
 };
 
+// Formulario de publicación. Requiere sesión: la API asocia el registro a la cuenta.
 export default function PublishPage() {
   const { session } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -22,6 +24,7 @@ export default function PublishPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
+  const maxImages = maxImagesFor(kind);
 
   function updateField(event) {
     const { name, value, type, checked } = event.target;
@@ -38,6 +41,7 @@ export default function PublishPage() {
     setError('');
     setNotice('');
     setBusy(true);
+    // Normaliza el formulario al contrato de la API: textos recortados y opcionales en null.
     const body = {
       title: form.title.trim(),
       description: form.description.trim(),
@@ -63,12 +67,13 @@ export default function PublishPage() {
       const created = await createPublication(kind, body);
       try { rememberPublication(kind, created.id, created); } catch { /* La vista previa local es opcional. */ }
 
+      // La publicación ya existe; las imágenes se suben una a una y un fallo no la revierte.
       const failures = [];
       for (const file of files) {
         try { await uploadPublicationImage(kind, created.id, file); }
         catch (uploadError) { failures.push(`${file.name}: ${uploadError.message}`); }
       }
-      const path = `/${kind === 'product' ? 'productos' : 'avisos'}/${created.id}`;
+      const path = publicationPath(kind, created.id);
       if (failures.length) {
         setNotice(`La publicación se creó, pero no se pudieron subir ${failures.length} imagen(es). Podrás intentarlo desde Tus publicaciones.`);
         window.setTimeout(() => navigate(path), 1800);
@@ -120,7 +125,7 @@ export default function PublishPage() {
               <Field label="Sitio web" name="website_url" type="url" value={form.website_url} onChange={updateField} maxLength={2048} placeholder="https://" />
             </>}
             <Field label="Descripción" name="description" as="textarea" rows="5" value={form.description} onChange={updateField} required minLength={10} maxLength={10000} placeholder="Describe lo que ofreces con los detalles que te gustaría encontrar." className="input field-wide" />
-            <label className="field field-wide"><span className="field-label">{kind === 'product' ? 'Fotos del producto' : 'Imagen del aviso'}</span><input className="file-input" type="file" accept="image/jpeg,image/png,image/webp" multiple={kind === 'product'} onChange={(event) => setFiles(Array.from(event.target.files || []).slice(0, kind === 'product' ? 8 : 1))} /><span className="field-hint">JPG, PNG o WebP · hasta 5 MB por imagen. {kind === 'product' ? 'Máximo 8 fotos.' : 'Puedes adjuntar 1 imagen.'}</span>{files.length > 0 && <span className="file-summary">{files.length} {files.length === 1 ? 'imagen seleccionada' : 'imágenes seleccionadas'}</span>}</label>
+            <label className="field field-wide"><span className="field-label">{kind === 'product' ? 'Fotos del producto' : 'Imagen del aviso'}</span><input className="file-input" type="file" accept={ACCEPTED_IMAGE_TYPES} multiple={maxImages > 1} onChange={(event) => setFiles(Array.from(event.target.files || []).slice(0, maxImages))} /><span className="field-hint">JPG, PNG o WebP · hasta 5 MB por imagen. {maxImages > 1 ? `Máximo ${maxImages} fotos.` : 'Puedes adjuntar 1 imagen.'}</span>{files.length > 0 && <span className="file-summary">{files.length} {files.length === 1 ? 'imagen seleccionada' : 'imágenes seleccionadas'}</span>}</label>
           </div>
         </div>
 

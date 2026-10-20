@@ -7,6 +7,8 @@ import { requestMagicLink, signOut } from '../services/auth.js';
 import { requestAccountInvitation } from '../services/publications.js';
 import { isSupabaseConfigured } from '../services/supabase.js';
 
+// Acceso de publicadores: solicitar invitación con la clave privada o recibir un enlace
+// de inicio de sesión. Con sesión activa muestra el resumen de la cuenta.
 export default function AccountPage() {
   const { session } = useContext(AuthContext);
   const [mode, setMode] = useState('invite');
@@ -24,6 +26,7 @@ export default function AccountPage() {
     try {
       if (mode === 'invite') {
         await requestAccountInvitation(email, key);
+        // La clave solo vive en el estado del formulario y se borra tras usarla.
         setKey('');
         setNotice('Solicitud aceptada. Revisa tu correo; si la cuenta ya está activa, inicia sesión.');
       } else {

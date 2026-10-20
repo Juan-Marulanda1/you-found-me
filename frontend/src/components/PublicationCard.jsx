@@ -1,13 +1,9 @@
 import { Link } from 'react-router-dom';
-import { formatDate, formatPrice, kindLabel } from '../utils/format.js';
+import { formatDate, formatPrice, kindLabel, statusLabel } from '../utils/format.js';
+import { publicationPath } from '../utils/routes.js';
 
-const statusLabels = {
-  ACTIVE: 'Activa',
-  PAUSED: 'Pausada',
-  SOLD: 'Vendida',
-  CLOSED: 'Cerrada',
-};
-
+// Tarjeta reutilizable para catálogo y "Tus publicaciones". Con `to` y `actionLabel`
+// enlaza a la gestión y muestra el estado; `onRemove` agrega un botón para quitarla.
 export default function PublicationCard({
   kind,
   item,
@@ -16,7 +12,7 @@ export default function PublicationCard({
   onRemove,
 }) {
   const isProduct = kind === 'product';
-  const href = to || `/${isProduct ? 'productos' : 'avisos'}/${item.id}`;
+  const href = to || publicationPath(kind, item.id);
   const image = item.cover_image?.url;
 
   return (
@@ -42,7 +38,7 @@ export default function PublicationCard({
             {item.city && <span>{item.city}</span>}
           </div>
           {actionLabel && item.status && (
-            <span className="card-status">Estado: {statusLabels[item.status] || item.status}</span>
+            <span className="card-status">Estado: {statusLabel(item.status)}</span>
           )}
           <span className="card-title">{item.title || 'Publicación guardada'}</span>
           {isProduct && item.price != null && (

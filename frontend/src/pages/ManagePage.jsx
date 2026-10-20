@@ -4,10 +4,11 @@ import { AuthContext } from '../App.jsx';
 import Field from '../components/Field.jsx';
 import { Busy, Notice } from '../components/Feedback.jsx';
 import { claimLegacyPublication, deletePublication, deletePublicationImage, getPublicationForManagement, listPublicationImagesForManagement, updatePublication } from '../services/publications.js';
-import { uploadPublicationImage } from '../services/imageUpload.js';
+import { ACCEPTED_IMAGE_TYPES, maxImagesFor, uploadPublicationImage } from '../services/imageUpload.js';
 import { forgetPublication, rememberPublication } from '../services/publicationRefs.js';
-import { formatDate, formatPrice, kindLabel } from '../utils/format.js';
+import { formatDate, formatPrice, kindLabel, statusLabel, statusOptions } from '../utils/format.js';
 
+// Copia los campos editables de la respuesta de gestión al estado del formulario.
 function editableFields(kind, item) {
   return {
     title: item.title || '', description: item.description || '', category: item.category || '',
@@ -20,6 +21,7 @@ function editableFields(kind, item) {
   };
 }
 
+// Actualiza la vista previa local; coverImage undefined conserva la portada guardada.
 function cacheManagedPublication(kind, id, publication, coverImage) {
   try {
     rememberPublication(
@@ -32,6 +34,8 @@ function cacheManagedPublication(kind, id, publication, coverImage) {
   }
 }
 
+// Gestión de una publicación. Con sesión se abre automáticamente si la cuenta es dueña;
+// si no, se pide el PIN (publicaciones antiguas) y, con sesión, se reclama al validarlo.
 export default function ManagePage() {
   const { session } = useContext(AuthContext);
   const { kind, id } = useParams();
@@ -45,7 +49,7 @@ export default function ManagePage() {
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const maxImageCount = kind === 'product' ? 8 : 1;
+  const maxImageCount = maxImagesFor(kind);
 
   useEffect(() => {
     if (!validKind) setError('El tipo de publicación no es válido.');
@@ -57,6 +61,7 @@ export default function ManagePage() {
     setError('');
     try {
       const data = await getPublicationForManagement(kind, id, suppliedPin);
+      // Un PIN válido con sesión activa vincula la publicación antigua a la cuenta.
       if (suppliedPin && session) await claimLegacyPublication(kind, id, suppliedPin);
       if (suppliedPin) setPin(suppliedPin);
       setItem(data);
@@ -76,6 +81,7 @@ export default function ManagePage() {
         setNotice('La publicación abrió correctamente, pero no pudimos cargar sus imágenes.');
       }
     } catch (requestError) {
+      // La carga automática sin PIN falla en silencio para mostrar el formulario de PIN.
       setError(suppliedPin ? requestError.message : '');
     } finally {
       setBusy(false);
@@ -140,7 +146,8 @@ export default function ManagePage() {
     setError('');
     try {
       await deletePublication(kind, id, pin);
-      forgetPublication(kind, id);
+      // El borrado ya ocurrió; un fallo de localStorage no debe mostrarse como error.
+      try { forgetPublication(kind, id); } catch { /* Referencia local opcional. */ }
       navigate('/mis-publicaciones', { replace: true });
     } catch (requestError) {
       setError(requestError.message);
@@ -216,7 +223,7 @@ export default function ManagePage() {
 
   return (
     <section className="manage-page">
-      <div className="manage-topline"><Link className="back-link" to="/mis-publicaciones">← Tus publicaciones</Link><span className="pill">{kindLabel(kind)} · {item.status}</span></div>
+      <div className="manage-topline"><Link className="back-link" to="/mis-publicaciones">← Tus publicaciones</Link><span className="pill">{kindLabel(kind)} · {statusLabel(item.status)}</span></div>
       <div className="page-heading manage-heading"><span className="eyebrow">Actualizado {formatDate(item.updated_at)}</span><h1>Administra tu <em>publicación.</em></h1><p>Estos cambios se reflejan en el catálogo público.</p></div>
       <Notice tone="error">{error}</Notice>
       <Notice>{notice}</Notice>
@@ -234,14 +241,14 @@ export default function ManagePage() {
               <Field label="Sitio web" name="website_url" type="url" value={form.website_url} onChange={change} maxLength={2048} />
             </>}
             <Field label="Descripción" name="description" as="textarea" rows="5" className="input field-wide" value={form.description} onChange={change} required minLength={10} maxLength={10000} />
-            <label className="field"><span className="field-label">Estado</span><select className="input" name="status" value={form.status} onChange={change}>{(kind === 'product' ? ['ACTIVE', 'SOLD', 'CLOSED'] : ['ACTIVE', 'PAUSED', 'CLOSED']).map((status) => <option key={status} value={status}>{({ ACTIVE: 'Activo', SOLD: 'Vendido', PAUSED: 'Pausado', CLOSED: 'Cerrado' })[status]}</option>)}</select></label>
+            <label className="field"><span className="field-label">Estado</span><select className="input" name="status" value={form.status} onChange={change}>{statusOptions(kind).map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)}</select></label>
           </div>
         </div>
         <div className="form-section">
-          <div className="form-section-heading"><span>02</span><div><h2>{kind === 'product' ? 'Fotos' : 'Imagen del aviso'}</h2><p>{kind === 'product' ? 'Sube hasta 8 fotos.' : 'Sube 1 imagen para mostrar con el aviso.'} Aceptamos JPG, PNG y WebP de hasta 5 MB cada una.</p></div></div>
+          <div className="form-section-heading"><span>02</span><div><h2>{kind === 'product' ? 'Fotos' : 'Imagen del aviso'}</h2><p>{maxImageCount > 1 ? `Sube hasta ${maxImageCount} fotos.` : 'Sube 1 imagen para mostrar con el aviso.'} Aceptamos JPG, PNG y WebP de hasta 5 MB cada una.</p></div></div>
           <div className="manage-images">
             {images.map((image) => <figure className="manage-image" key={image.id}><img src={image.url} alt={image.alt_text || item.title} /><button type="button" className="image-remove" onClick={() => removeImage(image.id)} disabled={busy} aria-label="Eliminar foto">×</button>{image.status === 'PENDING' && <figcaption>Subida pendiente</figcaption>}</figure>)}
-            {images.length < maxImageCount && <label className="image-add"><span>＋</span><strong>{kind === 'product' ? 'Añadir fotos' : 'Añadir imagen'}</strong><small>{kind === 'product' ? 'Selecciona hasta 8' : 'Selecciona una imagen'}</small><input type="file" accept="image/jpeg,image/png,image/webp" multiple={kind === 'product'} onChange={addImages} disabled={busy} /></label>}
+            {images.length < maxImageCount && <label className="image-add"><span>＋</span><strong>{kind === 'product' ? 'Añadir fotos' : 'Añadir imagen'}</strong><small>{maxImageCount > 1 ? `Selecciona hasta ${maxImageCount}` : 'Selecciona una imagen'}</small><input type="file" accept={ACCEPTED_IMAGE_TYPES} multiple={maxImageCount > 1} onChange={addImages} disabled={busy} /></label>}
           </div>
         </div>
         <div className="form-section">

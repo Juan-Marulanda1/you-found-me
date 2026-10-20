@@ -5,7 +5,10 @@ import PublicationCard from '../components/PublicationCard.jsx';
 import { Busy, Notice } from '../components/Feedback.jsx';
 import { getMyPublications } from '../services/publications.js';
 import { getPublicationRefs } from '../services/publicationRefs.js';
+import { managementPath } from '../utils/routes.js';
 
+// Convierte referencias guardadas en el navegador en tarjetas, omitiendo las que la API
+// ya devolvió como propias o reclamables.
 function localFallbacks(references, knownIds) {
   return references
     .filter((reference) => !knownIds.has(`${reference.kind}-${reference.id}`))
@@ -21,6 +24,8 @@ function localFallbacks(references, knownIds) {
     }));
 }
 
+// Muestra tres grupos: publicaciones de la cuenta, antiguas con el mismo correo
+// (reclamables con PIN) y referencias locales que no coinciden con el correo.
 export default function MyPublicationsPage() {
   const { session } = useContext(AuthContext);
   const [publications, setPublications] = useState([]);
@@ -86,7 +91,7 @@ export default function MyPublicationsPage() {
                 key={`${kind}-${item.id}`}
                 kind={kind}
                 item={item}
-                to={`/gestionar/${kind}/${item.id}`}
+                to={managementPath(kind, item.id)}
                 actionLabel="Administrar"
               />
             ))}
@@ -103,7 +108,7 @@ export default function MyPublicationsPage() {
                 key={`claim-${item.kind}-${item.id}`}
                 kind={item.kind}
                 item={item}
-                to={`/gestionar/${item.kind}/${item.id}`}
+                to={managementPath(item.kind, item.id)}
                 actionLabel="Reclamar con PIN"
               />
             ))}
@@ -120,7 +125,7 @@ export default function MyPublicationsPage() {
                 key={`local-${item.kind}-${item.id}`}
                 kind={item.kind}
                 item={item}
-                to={`/gestionar/${item.kind}/${item.id}`}
+                to={managementPath(item.kind, item.id)}
                 actionLabel="Abrir con PIN"
               />
             ))}

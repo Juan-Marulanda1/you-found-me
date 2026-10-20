@@ -6,6 +6,7 @@ import { listPublications } from '../services/publications.js';
 
 const emptyPage = { items: [], page: 1, pages: 0, total: 0 };
 
+// Catálogo público: alterna productos y avisos, filtra y pagina contra la API.
 export default function CatalogPage() {
   const [kind, setKind] = useState('product');
   const [form, setForm] = useState({ search: '', city: '', category: '' });
@@ -15,6 +16,7 @@ export default function CatalogPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // `active` evita aplicar respuestas de una búsqueda que ya fue reemplazada.
   useEffect(() => {
     let active = true;
     setLoading(true);
@@ -28,6 +30,7 @@ export default function CatalogPage() {
 
   function submitSearch(event) {
     event.preventDefault();
+    // La API exige al menos 2 caracteres por filtro; los más cortos se ignoran.
     const nextFilters = Object.fromEntries(
       Object.entries(form).filter(([, value]) => value.trim().length >= 2),
     );

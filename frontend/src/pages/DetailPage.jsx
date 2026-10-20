@@ -4,6 +4,7 @@ import { Busy, Notice } from '../components/Feedback.jsx';
 import { getPublication, listPublicationImages } from '../services/publications.js';
 import { formatDate, formatPrice, kindLabel } from '../utils/format.js';
 
+// Solo permite enlaces http(s) para evitar URLs como javascript: en el sitio web.
 function safeExternalUrl(value) {
   if (!value) return '';
   try {
@@ -14,6 +15,7 @@ function safeExternalUrl(value) {
   }
 }
 
+// Detalle público. Si las imágenes fallan, se muestra la portada incluida en la publicación.
 export default function DetailPage({ kind }) {
   const { id } = useParams();
   const [item, setItem] = useState(null);
@@ -66,7 +68,7 @@ export default function DetailPage({ kind }) {
             <time dateTime={item.created_at}>{formatDate(item.created_at)}</time>
           </div>
           <div className="contact-actions">
-            {item.contact_phone ? <a className="button button-primary button-wide" href={`tel:${item.contact_phone}`}>Llamar al vendedor <span aria-hidden="true">↗</span></a> : <p className="private-contact">El teléfono no está visible porque quien publicó no autorizó compartirlo.</p>}
+            {item.contact_phone ? <a className="button button-primary button-wide" href={`tel:${item.contact_phone}`}>{kind === 'product' ? 'Llamar al vendedor' : 'Llamar'} <span aria-hidden="true">↗</span></a> : <p className="private-contact">El teléfono no está visible porque quien publicó no autorizó compartirlo.</p>}
             {kind === 'announcement' && websiteUrl && <a className="button button-outline button-wide" href={websiteUrl} target="_blank" rel="noopener noreferrer">Visitar sitio web <span aria-hidden="true">↗</span></a>}
           </div>
           <p className="privacy-note">Por privacidad, el correo y la dirección exacta no se muestran públicamente.</p>
