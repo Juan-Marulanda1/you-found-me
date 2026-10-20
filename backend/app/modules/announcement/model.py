@@ -1,10 +1,11 @@
 from sqlalchemy import CheckConstraint, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
 from app.database.mixins import PublicationContactMixin, TimestampMixin, UUIDMixin
 
 from .enums import AnnouncementStatus
+from .image_model import AnnouncementImage
 
 
 class Announcement(Base, UUIDMixin, TimestampMixin, PublicationContactMixin):
@@ -30,4 +31,11 @@ class Announcement(Base, UUIDMixin, TimestampMixin, PublicationContactMixin):
         String(20),
         nullable=False,
         default=AnnouncementStatus.ACTIVE,
+    )
+
+    images: Mapped[list[AnnouncementImage]] = relationship(
+        back_populates="announcement",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="AnnouncementImage.position",
     )

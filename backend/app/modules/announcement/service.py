@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Callable
 from uuid import UUID
 
 from app.core.exceptions import InvalidAdminPinError, PublicationNotFoundError
@@ -88,10 +89,16 @@ class AnnouncementService:
         return self.repository.update(announcement)
 
     def delete(
-        self, announcement_id: UUID, admin_pin: str, client_ip: str = "unknown"
+        self,
+        announcement_id: UUID,
+        admin_pin: str,
+        client_ip: str = "unknown",
+        before_delete: Callable[[UUID], None] | None = None,
     ) -> None:
         announcement = self.get_by_id(announcement_id)
         self._validate_pin(announcement, admin_pin, client_ip)
+        if before_delete is not None:
+            before_delete(announcement_id)
         self.repository.delete(announcement)
 
     def _validate_pin(

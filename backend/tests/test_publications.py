@@ -183,7 +183,10 @@ class ManagementPinTests(unittest.TestCase):
         self.assertTrue(verify_admin_pin("123456", product.admin_pin_hash))
 
     def test_public_announcement_hides_private_fields_and_inactive_items(self):
-        from app.modules.announcement.dependencies import get_announcement_service
+        from app.modules.announcement.dependencies import (
+            get_announcement_image_service,
+            get_announcement_service,
+        )
 
         repository = InMemoryAnnouncementRepository()
         service = AnnouncementService(repository)
@@ -192,6 +195,17 @@ class ManagementPinTests(unittest.TestCase):
         announcement = service.create(AnnouncementCreate.model_validate(data))
         announcement.id = uuid4()
         self.app.dependency_overrides[get_announcement_service] = lambda: service
+        cover_image = {
+            "id": str(uuid4()),
+            "url": "https://storage.example/announcements/cover.jpg",
+            "content_type": "image/jpeg",
+            "size_bytes": 123,
+            "alt_text": "Fachada del negocio",
+            "position": 0,
+        }
+        self.app.dependency_overrides[get_announcement_image_service] = lambda: (
+            EmptyAnnouncementImageService({announcement.id: cover_image})
+        )
 
         status_code, response = call_asgi(
             self.app, "GET", f"/api/v1/announcements/{announcement.id}"
@@ -202,6 +216,7 @@ class ManagementPinTests(unittest.TestCase):
         self.assertIsNone(public_data["contact_phone"])
         self.assertNotIn("contact_email", public_data)
         self.assertNotIn("address", public_data)
+        self.assertEqual(public_data["cover_image"]["url"], cover_image["url"])
 
         announcement.status = AnnouncementStatus.CLOSED
         status_code, _ = call_asgi(
@@ -282,6 +297,11 @@ class ManagementPinTests(unittest.TestCase):
         self.app.dependency_overrides[get_product_service] = lambda: ProductService(
             repository
         )
+        from app.modules.product.dependencies import get_product_image_service
+
+        self.app.dependency_overrides[get_product_image_service] = (
+            EmptyProductImageService
+        )
 
         status_code, response = call_asgi(
             self.app, "GET", f"/api/v1/products/{product.id}"
@@ -294,10 +314,12 @@ class ManagementPinTests(unittest.TestCase):
         self.assertNotIn("address", public_data)
 
     def test_create_response_does_not_echo_private_contact_fields(self):
+        from app.core.publication_access import require_publication_creation_key
         from app.modules.announcement.dependencies import get_announcement_service
 
         service = AnnouncementService(InMemoryAnnouncementRepository())
         self.app.dependency_overrides[get_announcement_service] = lambda: service
+        self.app.dependency_overrides[require_publication_creation_key] = lambda: None
         payload = self.announcement_data()
         payload.update(contact_email="hola@horno.example", address="Laureles")
 
@@ -439,6 +461,15 @@ class ManagementPinTests(unittest.TestCase):
         self.assertIn("/api/v1/announcements", paths)
         self.assertIn("/api/v1/announcements/{announcement_id}/manage", paths)
         self.assertIn("patch", paths["/api/v1/announcements/{announcement_id}"])
+        self.assertIn(
+            "/api/v1/announcements/{announcement_id}/images/upload-url", paths
+        )
+        self.assertIn(
+            "/api/v1/announcements/{announcement_id}/images/{image_id}/complete",
+            paths,
+        )
+        self.assertIn("get", paths["/api/v1/announcements/{announcement_id}/images"])
+        self.assertIn("/api/v1/announcements/{announcement_id}/images/manage", paths)
         self.assertIn("/api/v1/products", paths)
         self.assertIn("/api/v1/products/{product_id}/manage", paths)
         self.assertIn("patch", paths["/api/v1/products/{product_id}"])
@@ -457,11 +488,17 @@ class ManagementPinTests(unittest.TestCase):
         from app.database.base import Base
 
         self.assertCountEqual(
-            registered_models.__all__, ["Announcement", "Product", "ProductImage"]
+            registered_models.__all__,
+            ["Announcement", "AnnouncementImage", "Product", "ProductImage"],
         )
         self.assertCountEqual(
             Base.metadata.tables,
-            ["announcements", "products", "product_images"],
+            [
+                "announcements",
+                "announcement_images",
+                "products",
+                "product_images",
+            ],
         )
 
     @staticmethod
@@ -476,6 +513,23 @@ class ManagementPinTests(unittest.TestCase):
             "contact_phone": "3001234567",
             "city": "Medellín",
         }
+
+
+class EmptyAnnouncementImageService:
+    def __init__(self, cover_images=None):
+        self.cover_images = cover_images or {}
+
+    def list_cover_images(self, announcement_ids):
+        return {
+            announcement_id: image
+            for announcement_id, image in self.cover_images.items()
+            if announcement_id in announcement_ids
+        }
+
+
+class EmptyProductImageService:
+    def list_cover_images(self, product_ids):
+        return {}
 
 
 if __name__ == "__main__":

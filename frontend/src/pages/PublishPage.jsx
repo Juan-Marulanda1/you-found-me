@@ -4,7 +4,7 @@ import Field from '../components/Field.jsx';
 import { Notice } from '../components/Feedback.jsx';
 import { PublicationAccessContext } from '../App.jsx';
 import { createPublication, verifyCreationKey } from '../services/publications.js';
-import { uploadProductImage } from '../services/imageUpload.js';
+import { uploadPublicationImage } from '../services/imageUpload.js';
 import { rememberPublication } from '../services/publicationRefs.js';
 
 const initialForm = {
@@ -27,6 +27,11 @@ export default function PublishPage() {
   function updateField(event) {
     const { name, value, type, checked } = event.target;
     setForm((current) => ({ ...current, [name]: type === 'checkbox' ? checked : value }));
+  }
+
+  function selectKind(nextKind) {
+    setKind(nextKind);
+    setFiles([]);
   }
 
   async function unlock(event) {
@@ -75,17 +80,17 @@ export default function PublishPage() {
       const created = await createPublication(kind, body, creationKey);
       try { rememberPublication(kind, created.id); } catch { /* Publication remains created even if browser storage is unavailable. */ }
 
-      if (kind === 'product' && files.length) {
+      if (files.length) {
         const failures = [];
         for (const file of files) {
-          try { await uploadProductImage(created.id, file, form.admin_pin); }
+          try { await uploadPublicationImage(kind, created.id, file, form.admin_pin); }
           catch (uploadError) { failures.push(`${file.name}: ${uploadError.message}`); }
         }
         if (failures.length) {
           setNotice(`La publicación se creó. No se pudieron subir ${failures.length} imagen(es); puedes intentarlo desde “Tus publicaciones”.`);
-          window.setTimeout(() => navigate(`/productos/${created.id}`), 1800);
+          window.setTimeout(() => navigate(`/${kind === 'product' ? 'productos' : 'avisos'}/${created.id}`), 1800);
         } else {
-          navigate(`/productos/${created.id}`);
+          navigate(`/${kind === 'product' ? 'productos' : 'avisos'}/${created.id}`);
         }
       } else {
         navigate(`/${kind === 'product' ? 'productos' : 'avisos'}/${created.id}`);
@@ -126,8 +131,8 @@ export default function PublishPage() {
         <p>Cuéntale a tu comunidad qué ofreces. Los datos de contacto se comparten con cuidado.</p>
       </div>
       <div className="publish-kind" role="tablist" aria-label="Tipo de publicación">
-        <button type="button" className={kind === 'product' ? 'publish-kind-option selected' : 'publish-kind-option'} onClick={() => setKind('product')}><span>✳</span><strong>Vender un producto</strong><small>Un artículo que alguien puede comprar</small></button>
-        <button type="button" className={kind === 'announcement' ? 'publish-kind-option selected' : 'publish-kind-option'} onClick={() => setKind('announcement')}><span>⌂</span><strong>Publicar un aviso</strong><small>Dar a conocer un negocio o servicio</small></button>
+        <button type="button" className={kind === 'product' ? 'publish-kind-option selected' : 'publish-kind-option'} onClick={() => selectKind('product')}><span>✳</span><strong>Vender un producto</strong><small>Un artículo que alguien puede comprar</small></button>
+        <button type="button" className={kind === 'announcement' ? 'publish-kind-option selected' : 'publish-kind-option'} onClick={() => selectKind('announcement')}><span>⌂</span><strong>Publicar un aviso</strong><small>Dar a conocer un negocio o servicio</small></button>
       </div>
 
       <form className="publication-form" onSubmit={submitPublication}>
@@ -144,7 +149,7 @@ export default function PublishPage() {
               <Field label="Sitio web" name="website_url" type="url" value={form.website_url} onChange={updateField} maxLength={2048} placeholder="https://" />
             </>}
             <Field label="Descripción" name="description" as="textarea" rows="5" value={form.description} onChange={updateField} required minLength={10} maxLength={10000} placeholder="Describe lo que ofreces con los detalles que te gustaría encontrar." className="input field-wide" />
-            {kind === 'product' && <label className="field field-wide"><span className="field-label">Fotos del producto</span><input className="file-input" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => setFiles(Array.from(event.target.files || []).slice(0, 8))} /><span className="field-hint">JPG, PNG o WebP · hasta 5 MB cada una · máximo 8 fotos.</span>{files.length > 0 && <span className="file-summary">{files.length} {files.length === 1 ? 'foto seleccionada' : 'fotos seleccionadas'}</span>}</label>}
+            <label className="field field-wide"><span className="field-label">{kind === 'product' ? 'Fotos del producto' : 'Imagen del aviso'}</span><input className="file-input" type="file" accept="image/jpeg,image/png,image/webp" multiple={kind === 'product'} onChange={(event) => setFiles(Array.from(event.target.files || []).slice(0, kind === 'product' ? 8 : 1))} /><span className="field-hint">JPG, PNG o WebP · hasta 5 MB por imagen. {kind === 'product' ? 'Máximo 8 fotos.' : 'Puedes adjuntar 1 imagen.'}</span>{files.length > 0 && <span className="file-summary">{files.length} {files.length === 1 ? 'imagen seleccionada' : 'imágenes seleccionadas'}</span>}</label>
           </div>
         </div>
 

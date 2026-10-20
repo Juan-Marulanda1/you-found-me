@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Field from '../components/Field.jsx';
 import { Busy, Notice } from '../components/Feedback.jsx';
-import { deletePublication, deleteProductImage, getPublicationForManagement, listProductImagesForManagement, updatePublication } from '../services/publications.js';
-import { uploadProductImage } from '../services/imageUpload.js';
+import { deletePublication, deletePublicationImage, getPublicationForManagement, listPublicationImagesForManagement, updatePublication } from '../services/publications.js';
+import { uploadPublicationImage } from '../services/imageUpload.js';
 import { forgetPublication, rememberPublication } from '../services/publicationRefs.js';
 import { formatDate, formatPrice, kindLabel } from '../utils/format.js';
 
@@ -31,6 +31,7 @@ export default function ManagePage() {
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const maxImageCount = kind === 'product' ? 8 : 1;
 
   useEffect(() => {
     if (!validKind) setError('El tipo de publicación no es válido.');
@@ -46,10 +47,8 @@ export default function ManagePage() {
       setForm(editableFields(kind, data));
       try { rememberPublication(kind, id); } catch { /* Browser storage is optional for managing this publication. */ }
       setLoaded(true);
-      if (kind === 'product') {
-        try { setImages(await listProductImagesForManagement(id, pin)); }
-        catch { setNotice('La publicación abrió correctamente, pero no pudimos cargar la lista de fotos.'); }
-      }
+      try { setImages(await listPublicationImagesForManagement(kind, id, pin)); }
+      catch { setNotice('La publicación abrió correctamente, pero no pudimos cargar sus imágenes.'); }
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -99,7 +98,7 @@ export default function ManagePage() {
   }
 
   async function removePublication() {
-    if (!window.confirm('¿Quieres borrar esta publicación? Esta acción no se puede deshacer.')) return;
+    if (!window.confirm('¿Quieres borrar esta publicación y sus imágenes? Esta acción no se puede deshacer.')) return;
     setBusy(true);
     setError('');
     try {
@@ -114,20 +113,20 @@ export default function ManagePage() {
   }
 
   async function addImages(event) {
-    const files = Array.from(event.target.files || []).slice(0, 8);
+    const files = Array.from(event.target.files || []).slice(0, maxImageCount);
     event.target.value = '';
     if (!files.length) return;
     setBusy(true);
     setError('');
     const failures = [];
     for (const file of files) {
-      try { await uploadProductImage(id, file, pin); }
+      try { await uploadPublicationImage(kind, id, file, pin); }
       catch (uploadError) { failures.push(`${file.name}: ${uploadError.message}`); }
     }
-    try { setImages(await listProductImagesForManagement(id, pin)); }
+    try { setImages(await listPublicationImagesForManagement(kind, id, pin)); }
     catch (listError) { setError(listError.message); }
     if (failures.length) setNotice(`No se pudieron subir ${failures.length} imagen(es). Puedes volver a intentarlo.`);
-    else setNotice('Fotos actualizadas.');
+    else setNotice('Imágenes actualizadas.');
     setBusy(false);
   }
 
@@ -135,9 +134,9 @@ export default function ManagePage() {
     setBusy(true);
     setError('');
     try {
-      await deleteProductImage(id, imageId, pin);
+      await deletePublicationImage(kind, id, imageId, pin);
       setImages((current) => current.filter((image) => image.id !== imageId));
-      setNotice('Foto eliminada.');
+      setNotice('Imagen eliminada.');
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -185,15 +184,15 @@ export default function ManagePage() {
             <label className="field"><span className="field-label">Estado</span><select className="input" name="status" value={form.status} onChange={change}>{(kind === 'product' ? ['ACTIVE', 'SOLD', 'CLOSED'] : ['ACTIVE', 'PAUSED', 'CLOSED']).map((status) => <option key={status} value={status}>{({ ACTIVE: 'Activo', SOLD: 'Vendido', PAUSED: 'Pausado', CLOSED: 'Cerrado' })[status]}</option>)}</select></label>
           </div>
         </div>
-        {kind === 'product' && <div className="form-section">
-          <div className="form-section-heading"><span>02</span><div><h2>Fotos</h2><p>Sube hasta 8 fotos. Aceptamos JPG, PNG y WebP de hasta 5 MB cada una.</p></div></div>
+        <div className="form-section">
+          <div className="form-section-heading"><span>02</span><div><h2>{kind === 'product' ? 'Fotos' : 'Imagen del aviso'}</h2><p>{kind === 'product' ? 'Sube hasta 8 fotos.' : 'Sube 1 imagen para mostrar con el aviso.'} Aceptamos JPG, PNG y WebP de hasta 5 MB cada una.</p></div></div>
           <div className="manage-images">
             {images.map((image) => <figure className="manage-image" key={image.id}><img src={image.url} alt={image.alt_text || item.title} /><button type="button" className="image-remove" onClick={() => removeImage(image.id)} disabled={busy} aria-label="Eliminar foto">×</button>{image.status === 'PENDING' && <figcaption>Subida pendiente</figcaption>}</figure>)}
-            <label className="image-add"><span>＋</span><strong>Añadir fotos</strong><small>Selecciona hasta 8</small><input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={addImages} disabled={busy} /></label>
+            {images.length < maxImageCount && <label className="image-add"><span>＋</span><strong>{kind === 'product' ? 'Añadir fotos' : 'Añadir imagen'}</strong><small>{kind === 'product' ? 'Selecciona hasta 8' : 'Selecciona una imagen'}</small><input type="file" accept="image/jpeg,image/png,image/webp" multiple={kind === 'product'} onChange={addImages} disabled={busy} /></label>}
           </div>
-        </div>}
+        </div>
         <div className="form-section">
-          <div className="form-section-heading"><span>{kind === 'product' ? '03' : '02'}</span><div><h2>Contacto y privacidad</h2><p>El teléfono público depende de tu autorización.</p></div></div>
+          <div className="form-section-heading"><span>03</span><div><h2>Contacto y privacidad</h2><p>El teléfono público depende de tu autorización.</p></div></div>
           <div className="form-grid">
             <Field label="Nombre de contacto" name="contact_name" value={form.contact_name} onChange={change} required minLength={2} maxLength={100} />
             <Field label="Teléfono" name="contact_phone" type="tel" value={form.contact_phone} onChange={change} required minLength={7} maxLength={20} />
@@ -204,12 +203,12 @@ export default function ManagePage() {
           </div>
         </div>
         <div className="form-section">
-          <div className="form-section-heading"><span>{kind === 'product' ? '04' : '03'}</span><div><h2>Actualizar PIN</h2><p>Opcional. Solo cambia el PIN si escribes uno nuevo.</p></div></div>
+          <div className="form-section-heading"><span>04</span><div><h2>Actualizar PIN</h2><p>Opcional. Solo cambia el PIN si escribes uno nuevo.</p></div></div>
           <div className="form-grid pin-grid"><Field label="Nuevo PIN" name="new_admin_pin" type="password" inputMode="numeric" autoComplete="new-password" value={form.new_admin_pin || ''} onChange={change} minLength={6} maxLength={12} pattern="[0-9]{6,12}" placeholder="Dejar vacío para conservarlo" /></div>
         </div>
         <div className="form-submit-row"><span>Creada el {formatDate(item.created_at)} · {kind === 'product' && <strong>{formatPrice(item.price, item.currency)}</strong>}</span><button className="button button-primary" type="submit" disabled={busy}>{busy ? 'Guardando…' : 'Guardar cambios'} <span aria-hidden="true">✓</span></button></div>
       </form>
-      <div className="danger-zone"><div><strong>Eliminar publicación</strong><p>Se quitará del catálogo y las fotos asociadas también se borrarán.</p></div><button type="button" className="button button-danger" onClick={removePublication} disabled={busy}>Eliminar</button></div>
+      <div className="danger-zone"><div><strong>Eliminar publicación</strong><p>Se quitará del catálogo y sus imágenes también se borrarán.</p></div><button type="button" className="button button-danger" onClick={removePublication} disabled={busy}>Eliminar</button></div>
     </section>
   );
 }

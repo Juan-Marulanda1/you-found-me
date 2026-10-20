@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     SUPABASE_PRODUCT_IMAGES_BUCKET: str = "product-images"
     PRODUCT_IMAGE_MAX_BYTES: int = Field(default=5 * 1024 * 1024, gt=0)
     PRODUCT_IMAGE_MAX_COUNT: int = Field(default=8, gt=0, le=50)
+    ANNOUNCEMENT_IMAGE_MAX_COUNT: int = Field(default=1, gt=0, le=50)
 
     @field_validator("FORWARDED_ALLOW_IPS")
     @classmethod

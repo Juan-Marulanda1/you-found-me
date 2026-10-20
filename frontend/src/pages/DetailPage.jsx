@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Busy, Notice } from '../components/Feedback.jsx';
-import { getPublication, listProductImages } from '../services/publications.js';
+import { getPublication, listPublicationImages } from '../services/publications.js';
 import { formatDate, formatPrice, kindLabel } from '../utils/format.js';
 
 function safeExternalUrl(value) {
@@ -25,11 +25,10 @@ export default function DetailPage({ kind }) {
     let active = true;
     setLoading(true);
     setError('');
-    const tasks = [getPublication(kind, id)];
-    if (kind === 'product') tasks.push(listProductImages(id).catch(() => []));
+    const tasks = [getPublication(kind, id), listPublicationImages(kind, id).catch(() => [])];
     Promise.all(tasks)
-      .then(([publication, productImages = []]) => {
-        if (active) { setItem(publication); setImages(productImages); }
+      .then(([publication, publicationImages = []]) => {
+        if (active) { setItem(publication); setImages(publicationImages); }
       })
       .catch((requestError) => { if (active) setError(requestError.message); })
       .finally(() => { if (active) setLoading(false); });

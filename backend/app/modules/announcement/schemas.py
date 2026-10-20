@@ -4,6 +4,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.modules.announcement.enums import AnnouncementStatus
+from app.modules.publication.image_schemas import PublicationImageResponse
 from app.modules.publication.schemas import (
     AdminPinAuthSchema,
     PublicationCreateSchema,
@@ -62,6 +63,7 @@ class AnnouncementResponse(BaseModel):
     contact_name: str
     contact_phone: str | None = Field(validation_alias="public_contact_phone")
     city: str
+    cover_image: PublicationImageResponse | None = None
     created_at: datetime
     updated_at: datetime
 

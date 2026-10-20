@@ -94,6 +94,12 @@ class MarketplaceMigrationTests(unittest.TestCase):
                     ).scalar_one(),
                     "product_images",
                 )
+                self.assertEqual(
+                    connection.execute(
+                        text("SELECT to_regclass('announcement_images')")
+                    ).scalar_one(),
+                    "announcement_images",
+                )
                 image_columns = {
                     row["column_name"]
                     for row in connection.execute(
@@ -133,6 +139,21 @@ class MarketplaceMigrationTests(unittest.TestCase):
                     .all()
                 )
                 self.assertEqual(image_foreign_keys, ["c"])
+                announcement_image_foreign_keys = (
+                    connection.execute(
+                        text(
+                            """
+                        SELECT confdeltype
+                        FROM pg_constraint
+                        WHERE conrelid = 'announcement_images'::regclass
+                          AND contype = 'f'
+                        """
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+                self.assertEqual(announcement_image_foreign_keys, ["c"])
         finally:
             try:
                 if engine is not None:

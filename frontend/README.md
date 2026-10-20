@@ -37,7 +37,7 @@ Configura `PUBLICATION_CREATION_KEY` en el entorno privado del backend (`backend
 - Formulario de publicación protegido por clave del backend y PIN por publicación.
 - “Tus publicaciones” conserva solo tipo e identificador en el almacenamiento local del navegador; pide el PIN antes de abrir la administración.
 - Edición, cambio de estado, rotación del PIN y eliminación con el PIN.
-- Imágenes de producto subidas desde el navegador al bucket Supabase con URL firmada; las credenciales de servicio permanecen en la API.
+- Imágenes de productos y avisos subidas desde el navegador al bucket Supabase con URL firmada; las credenciales de servicio permanecen en la API. Los avisos admiten una imagen.
 
 ### Entrega 2 — validar con el entorno real
 

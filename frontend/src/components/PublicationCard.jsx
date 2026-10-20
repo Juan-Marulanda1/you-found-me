@@ -4,7 +4,7 @@ import { formatDate, formatPrice } from '../utils/format.js';
 export default function PublicationCard({ kind, item }) {
   const isProduct = kind === 'product';
   const href = `/${isProduct ? 'productos' : 'avisos'}/${item.id}`;
-  const image = isProduct ? item.cover_image?.url : null;
+  const image = item.cover_image?.url;
   return (
     <article className="publication-card">
       <Link to={href} className={`card-image ${image ? '' : 'card-image-placeholder'}`} aria-label={`Ver ${item.title}`}>

@@ -33,19 +33,25 @@ export const deletePublication = (kind, id, adminPin) => request(
   `${endpoints[kind]}/${id}`, { method: 'DELETE', body: { admin_pin: adminPin } },
 );
 
-export const listProductImages = (id) => request(`/products/${id}/images`);
-export const listProductImagesForManagement = (id, adminPin) => request(
-  `/products/${id}/images/manage`, { method: 'POST', body: { admin_pin: adminPin } },
+export const listPublicationImages = (kind, id) => request(`${endpoints[kind]}/${id}/images`);
+export const listPublicationImagesForManagement = (kind, id, adminPin) => request(
+  `${endpoints[kind]}/${id}/images/manage`, { method: 'POST', body: { admin_pin: adminPin } },
 );
-export const createProductImageUpload = (id, body) => request(
-  `/products/${id}/images/upload-url`, { method: 'POST', body },
+export const createPublicationImageUpload = (kind, id, body) => request(
+  `${endpoints[kind]}/${id}/images/upload-url`, { method: 'POST', body },
 );
-export const completeProductImageUpload = (id, imageId, adminPin) => request(
-  `/products/${id}/images/${imageId}/complete`, { method: 'POST', body: { admin_pin: adminPin } },
+export const completePublicationImageUpload = (kind, id, imageId, adminPin) => request(
+  `${endpoints[kind]}/${id}/images/${imageId}/complete`, { method: 'POST', body: { admin_pin: adminPin } },
 );
-export const deleteProductImage = (id, imageId, adminPin) => request(
-  `/products/${id}/images/${imageId}`, { method: 'DELETE', body: { admin_pin: adminPin } },
+export const deletePublicationImage = (kind, id, imageId, adminPin) => request(
+  `${endpoints[kind]}/${id}/images/${imageId}`, { method: 'DELETE', body: { admin_pin: adminPin } },
 );
+
+export const listProductImages = (id) => listPublicationImages('product', id);
+export const listProductImagesForManagement = (id, adminPin) => listPublicationImagesForManagement('product', id, adminPin);
+export const createProductImageUpload = (id, body) => createPublicationImageUpload('product', id, body);
+export const completeProductImageUpload = (id, imageId, adminPin) => completePublicationImageUpload('product', id, imageId, adminPin);
+export const deleteProductImage = (id, imageId, adminPin) => deletePublicationImage('product', id, imageId, adminPin);
 
 export function endpointFor(kind) {
   return endpoints[kind];
