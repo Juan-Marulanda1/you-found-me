@@ -37,6 +37,19 @@ class AnnouncementService:
             raise PublicationNotFoundError()
         return announcement
 
+    def get_public_by_id(self, announcement_id: UUID) -> Announcement:
+        announcement = self.get_by_id(announcement_id)
+        if announcement.status != AnnouncementStatus.ACTIVE:
+            raise PublicationNotFoundError()
+        return announcement
+
+    def get_for_management(
+        self, announcement_id: UUID, admin_pin: str, client_ip: str = "unknown"
+    ) -> Announcement:
+        announcement = self.get_by_id(announcement_id)
+        self._validate_pin(announcement, admin_pin, client_ip)
+        return announcement
+
     def list(
         self,
         *,

@@ -4,11 +4,19 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from app.core.pagination import PageData, build_page
+from app.core.request import get_client_ip
 from app.core.responses import DataResponse
 
 from .dependencies import get_product_service
 from .enums import ProductStatus
-from .schemas import ProductCreate, ProductDelete, ProductResponse, ProductUpdate
+from .schemas import (
+    ProductCreate,
+    ProductDelete,
+    ProductManagementResponse,
+    ProductManageRequest,
+    ProductResponse,
+    ProductUpdate,
+)
 from .service import ProductService
 
 router = APIRouter(prefix="/products", tags=["Products"])
@@ -33,7 +41,6 @@ def list_products(
     search: str | None = Query(default=None, min_length=2, max_length=150),
     min_price: Decimal | None = Query(default=None, gt=0),
     max_price: Decimal | None = Query(default=None, gt=0),
-    listing_status: ProductStatus | None = Query(default=None, alias="status"),
     service: ProductService = Depends(get_product_service),
 ):
     if min_price is not None and max_price is not None and min_price > max_price:
@@ -46,7 +53,7 @@ def list_products(
         page_size=page_size,
         city=city,
         category=category,
-        status=listing_status,
+        status=ProductStatus.ACTIVE,
         search=search,
         min_price=min_price,
         max_price=max_price,
@@ -65,23 +72,42 @@ def get_product(
     service: ProductService = Depends(get_product_service),
 ):
     return DataResponse[ProductResponse](
-        message="Product retrieved successfully.", data=service.get_by_id(product_id)
+        message="Product retrieved successfully.",
+        data=service.get_public_by_id(product_id),
     )
 
 
-@router.patch("/{product_id}", response_model=DataResponse[ProductResponse])
+@router.post(
+    "/{product_id}/manage",
+    response_model=DataResponse[ProductManagementResponse],
+)
+def get_product_for_management(
+    product_id: UUID,
+    data: ProductManageRequest,
+    request: Request,
+    service: ProductService = Depends(get_product_service),
+):
+    return DataResponse[ProductManagementResponse](
+        message="Product management access granted.",
+        data=service.get_for_management(
+            product_id, data.admin_pin, get_client_ip(request)
+        ),
+    )
+
+
+@router.patch("/{product_id}", response_model=DataResponse[ProductManagementResponse])
 def update_product(
     product_id: UUID,
     data: ProductUpdate,
     request: Request,
     service: ProductService = Depends(get_product_service),
 ):
-    return DataResponse[ProductResponse](
+    return DataResponse[ProductManagementResponse](
         message="Product updated successfully.",
         data=service.update(
             product_id,
             data,
-            request.client.host if request.client else "unknown",
+            get_client_ip(request),
         ),
     )
 
@@ -98,6 +124,6 @@ def delete_product(
     service.delete(
         product_id,
         data.admin_pin,
-        request.client.host if request.client else "unknown",
+        get_client_ip(request),
     )
     return DataResponse[None](message="Product deleted successfully.")

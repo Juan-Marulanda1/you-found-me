@@ -38,6 +38,19 @@ class ProductService:
             raise PublicationNotFoundError()
         return product
 
+    def get_public_by_id(self, product_id: UUID) -> Product:
+        product = self.get_by_id(product_id)
+        if product.status != ProductStatus.ACTIVE:
+            raise PublicationNotFoundError()
+        return product
+
+    def get_for_management(
+        self, product_id: UUID, admin_pin: str, client_ip: str = "unknown"
+    ) -> Product:
+        product = self.get_by_id(product_id)
+        self._validate_pin(product, admin_pin, client_ip)
+        return product
+
     def list(
         self,
         *,
