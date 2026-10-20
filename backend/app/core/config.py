@@ -24,9 +24,10 @@ class Settings(BaseSettings):
 
     ALLOWED_ORIGINS: list[str] = Field(default_factory=list)
 
-    # Keep the Supabase service key on the server only. It is never returned by
-    # an API schema; the browser receives a short-lived signed upload token.
+    # Keep Supabase admin keys on the server only. The legacy service_role key
+    # remains supported while projects migrate to the newer secret key.
     SUPABASE_URL: str = ""
+    SUPABASE_SECRET_KEY: SecretStr = SecretStr("")
     SUPABASE_SERVICE_ROLE_KEY: SecretStr = SecretStr("")
     SUPABASE_PRODUCT_IMAGES_BUCKET: str = "product-images"
     PRODUCT_IMAGE_MAX_BYTES: int = Field(default=5 * 1024 * 1024, gt=0)
@@ -48,10 +49,10 @@ class Settings(BaseSettings):
         return ",".join(networks)
 
     @property
-    def supabase_storage_configured(self) -> bool:
-        return bool(
-            self.SUPABASE_URL.strip()
-            and self.SUPABASE_SERVICE_ROLE_KEY.get_secret_value()
+    def supabase_storage_admin_key(self) -> str:
+        return (
+            self.SUPABASE_SECRET_KEY.get_secret_value()
+            or self.SUPABASE_SERVICE_ROLE_KEY.get_secret_value()
         )
 
     model_config = SettingsConfigDict(

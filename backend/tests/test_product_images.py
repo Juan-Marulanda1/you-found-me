@@ -1,6 +1,6 @@
 import os
 import unittest
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock, patch
 from uuid import uuid4
 
 os.environ["DEBUG"] = "false"
@@ -328,6 +328,41 @@ class SupabaseStorageAdapterTests(unittest.TestCase):
             "/object/upload/sign/product-images/path.jpg",
             payload={},
         )
+
+    def test_new_secret_key_is_sent_as_api_key_not_bearer_token(self):
+        storage = SupabaseStorage(
+            "https://project.example", "sb_secret_backend", "product-images"
+        )
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = b"{}"
+
+        with patch(
+            "app.integrations.supabase_storage.urlopen", return_value=response
+        ) as call:
+            storage._request("GET", "/object/info/product-images/photo.jpg")
+
+        request = call.call_args.args[0]
+        headers = {key.lower(): value for key, value in request.header_items()}
+        self.assertEqual(headers["apikey"], "sb_secret_backend")
+        self.assertNotIn("authorization", headers)
+
+    def test_legacy_service_role_key_keeps_bearer_compatibility(self):
+        legacy_key = "eyJlegacy.jwt"
+        storage = SupabaseStorage(
+            "https://project.example", legacy_key, "product-images"
+        )
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = b"{}"
+
+        with patch(
+            "app.integrations.supabase_storage.urlopen", return_value=response
+        ) as call:
+            storage._request("GET", "/object/info/product-images/photo.jpg")
+
+        request = call.call_args.args[0]
+        headers = {key.lower(): value for key, value in request.header_items()}
+        self.assertEqual(headers["apikey"], legacy_key)
+        self.assertEqual(headers["authorization"], f"Bearer {legacy_key}")
 
 
 if __name__ == "__main__":

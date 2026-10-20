@@ -130,7 +130,7 @@ Configura en `backend/.env`:
 | Parámetro | Valor | Función |
 | --- | --- | --- |
 | `SUPABASE_URL` | URL del proyecto, por ejemplo `https://<project-ref>.supabase.co` | Dirección base de la API de Storage. |
-| `SUPABASE_SERVICE_ROLE_KEY` | Clave secreta del backend de Supabase | Firma cargas y elimina archivos. Nunca debe incluirse en el frontend ni en Git. |
+| `SUPABASE_SECRET_KEY` | Clave secreta del backend de Supabase (`sb_secret_...`) | Firma cargas y elimina archivos. Nunca debe incluirse en el frontend ni en Git. |
 | `SUPABASE_PRODUCT_IMAGES_BUCKET` | `product-images` | Nombre exacto del bucket que creaste. |
 | `PRODUCT_IMAGE_MAX_BYTES` | `5242880` | Límite de tamaño validado por la API en bytes (5 MiB). |
 | `PRODUCT_IMAGE_MAX_COUNT` | `8` | Máximo de imágenes asociadas a un producto; las cargas pendientes también cuentan. |
@@ -142,7 +142,7 @@ Flujo del cliente:
 3. Llamar a `POST /products/{id}/images/{image_id}/complete` con el PIN. El servidor verifica que el objeto exista y que el tipo y tamaño coincidan antes de marcarlo como público.
 4. Consultar `GET /products/{id}/images` para obtener las URLs públicas de las imágenes confirmadas. En “Tus publicaciones”, usar `POST /products/{id}/images/manage` con el PIN para ver fotos y cargas pendientes, incluso si el producto está cerrado o vendido. Si se abandona una carga, borrar su `image_id` con `DELETE /products/{id}/images/{image_id}` y el PIN para liberar el cupo.
 
-El permiso público del bucket permite leer cualquier imagen cuyo URL se conozca; el PIN y la URL firmada controlan la carga, y el backend controla el borrado. Mantén el límite del bucket igual o menor que `PRODUCT_IMAGE_MAX_BYTES` y que el límite global configurado en Supabase. Si `SUPABASE_URL` o la clave están vacíos, las rutas de carga responden `503` y el resto de la API sigue funcionando. Las imágenes de anuncios generales todavía no están incluidas en este flujo.
+El permiso público del bucket permite leer cualquier imagen cuyo URL se conozca; el PIN y la URL firmada controlan la carga, y el backend controla el borrado. Mantén el límite del bucket igual o menor que `PRODUCT_IMAGE_MAX_BYTES` y que el límite global configurado en Supabase. Si `SUPABASE_URL` o la clave están vacíos, las rutas de carga responden `503` y el resto de la API sigue funcionando. Los proyectos que aún usan la clave antigua pueden ponerla en `SUPABASE_SERVICE_ROLE_KEY`; al migrar, usa `SUPABASE_SECRET_KEY`. Las imágenes de anuncios generales todavía no están incluidas en este flujo.
 
 ### Sección “Tus publicaciones”
 

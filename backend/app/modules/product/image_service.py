@@ -182,7 +182,7 @@ def build_product_image_service(
 ) -> ProductImageService:
     storage = SupabaseStorage(
         project_url=settings.SUPABASE_URL,
-        service_role_key=settings.SUPABASE_SERVICE_ROLE_KEY.get_secret_value(),
+        api_key=settings.supabase_storage_admin_key,
         bucket=settings.SUPABASE_PRODUCT_IMAGES_BUCKET,
     )
     return ProductImageService(

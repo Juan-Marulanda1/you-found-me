@@ -20,14 +20,14 @@ class SignedUpload:
 
 
 class SupabaseStorage:
-    def __init__(self, project_url: str, service_role_key: str, bucket: str):
+    def __init__(self, project_url: str, api_key: str, bucket: str):
         self.project_url = project_url.rstrip("/")
-        self.service_role_key = service_role_key
+        self.api_key = api_key
         self.bucket = bucket
 
     @property
     def configured(self) -> bool:
-        return bool(self.project_url and self.service_role_key)
+        return bool(self.project_url and self.api_key)
 
     def create_signed_upload(self, path: str) -> SignedUpload:
         response = self._request(
@@ -77,15 +77,19 @@ class SupabaseStorage:
             raise SupabaseStorageError()
 
         body = json.dumps(payload).encode("utf-8") if payload is not None else None
+        headers = {"apikey": self.api_key}
+        # New Supabase secret keys are opaque API keys, not JWTs. Old
+        # service_role keys are JWTs and also need the Authorization header.
+        if not self.api_key.startswith("sb_secret_"):
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        if body is not None:
+            headers["Content-Type"] = "application/json"
+
         request = Request(
             f"{self.api_url}{path}",
             data=body,
             method=method,
-            headers={
-                "apikey": self.service_role_key,
-                "Authorization": f"Bearer {self.service_role_key}",
-                **({"Content-Type": "application/json"} if body is not None else {}),
-            },
+            headers=headers,
         )
         try:
             with urlopen(request, timeout=10) as response:
