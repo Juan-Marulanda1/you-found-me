@@ -9,6 +9,11 @@ class AdminPinCreateSchema(BaseModel):
     admin_pin: str = Field(min_length=6, max_length=12, pattern=r"^\d{6,12}$")
 
 
+class PublicationCreateSchema(AdminPinCreateSchema):
+    # Phone numbers stay private unless the publisher checks an explicit consent.
+    contact_phone_public: bool = False
+
+
 class AdminPinAuthSchema(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

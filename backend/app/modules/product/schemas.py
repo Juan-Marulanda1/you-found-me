@@ -6,14 +6,14 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.modules.publication.schemas import (
     AdminPinAuthSchema,
-    AdminPinCreateSchema,
+    PublicationCreateSchema,
     PublicationUpdateSchema,
 )
 
 from .enums import ProductStatus
 
 
-class ProductCreate(AdminPinCreateSchema):
+class ProductCreate(PublicationCreateSchema):
     title: str = Field(min_length=3, max_length=150)
     description: str = Field(min_length=10, max_length=10_000)
     category: str = Field(min_length=2, max_length=80)
@@ -40,6 +40,7 @@ class ProductUpdate(PublicationUpdateSchema):
         default=None, min_length=3, max_length=3, pattern=r"^[A-Z]{3}$"
     )
     quantity: int | None = Field(default=None, ge=0)
+    contact_phone_public: bool | None = None
     status: ProductStatus | None = None
     contact_name: str | None = Field(default=None, min_length=2, max_length=100)
     contact_phone: str | None = Field(default=None, min_length=7, max_length=20)
@@ -60,7 +61,26 @@ class ProductResponse(BaseModel):
     quantity: int | None
     status: ProductStatus
     contact_name: str
+    contact_phone: str | None = Field(validation_alias="public_contact_phone")
+    city: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProductManagementResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    title: str
+    description: str
+    category: str
+    price: Decimal
+    currency: str
+    quantity: int | None
+    status: ProductStatus
+    contact_name: str
     contact_phone: str
+    contact_phone_public: bool
     contact_email: str | None
     city: str
     address: str | None
@@ -69,4 +89,8 @@ class ProductResponse(BaseModel):
 
 
 class ProductDelete(AdminPinAuthSchema):
+    pass
+
+
+class ProductManageRequest(AdminPinAuthSchema):
     pass
