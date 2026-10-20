@@ -27,21 +27,53 @@ class ImageStorageUnavailableError(AppException):
     detail = "Image storage is temporarily unavailable."
 
 
-class ProductImageNotFoundError(AppException):
+class PublicationImageNotFoundError(AppException):
     status_code = 404
+    detail = "Publication image not found."
+
+
+class ProductImageNotFoundError(PublicationImageNotFoundError):
     detail = "Product image not found."
 
 
-class ProductImageLimitExceededError(AppException):
+class AnnouncementImageNotFoundError(PublicationImageNotFoundError):
+    detail = "Announcement image not found."
+
+
+class PublicationImageLimitExceededError(AppException):
     status_code = 409
+    detail = "This publication has reached its image limit."
+
+
+class ProductImageLimitExceededError(PublicationImageLimitExceededError):
     detail = "This product has reached its image limit."
 
 
-class ProductImageUploadPendingError(AppException):
+class AnnouncementImageLimitExceededError(PublicationImageLimitExceededError):
+    detail = "This announcement has reached its image limit."
+
+
+class PublicationImageUploadPendingError(AppException):
     status_code = 409
     detail = "The image has not been uploaded yet."
 
 
-class ProductImageValidationError(AppException):
+class ProductImageUploadPendingError(PublicationImageUploadPendingError):
+    pass
+
+
+class AnnouncementImageUploadPendingError(PublicationImageUploadPendingError):
+    pass
+
+
+class PublicationImageValidationError(AppException):
     status_code = 422
     detail = "The uploaded image does not match the requested file type or size."
+
+
+class ProductImageValidationError(PublicationImageValidationError):
+    pass
+
+
+class AnnouncementImageValidationError(PublicationImageValidationError):
+    pass

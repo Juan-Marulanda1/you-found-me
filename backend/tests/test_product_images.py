@@ -36,7 +36,7 @@ class InMemoryProductImageRepository:
     def count_for_product(self, product_id):
         return sum(image.product_id == product_id for image in self.images.values())
 
-    def list_for_product(self, product_id, *, ready_only=False):
+    def list_for_publication(self, product_id, *, ready_only=False):
         images = [
             image
             for image in self.images.values()
@@ -44,6 +44,13 @@ class InMemoryProductImageRepository:
             and (not ready_only or image.status == "READY")
         ]
         return sorted(images, key=lambda image: image.position)
+
+    def list_cover_images(self, product_ids):
+        covers = {}
+        for image in self.images.values():
+            if image.product_id in product_ids and image.status == "READY":
+                covers.setdefault(image.product_id, image)
+        return covers
 
     def get_by_id(self, image_id):
         return self.images.get(image_id)

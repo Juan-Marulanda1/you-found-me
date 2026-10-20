@@ -1,44 +1,35 @@
-from typing import Literal
-from uuid import UUID
+from app.modules.publication.image_schemas import (
+    PublicationImageCompleteRequest,
+    PublicationImageContentType,
+    PublicationImageDeleteRequest,
+    PublicationImageManagementResponse,
+    PublicationImageResponse,
+    PublicationImageUploadRequest,
+    PublicationImageUploadResponse,
+)
 
-from pydantic import BaseModel, Field
-
-from app.modules.publication.schemas import AdminPinAuthSchema
-
-ProductImageContentType = Literal["image/jpeg", "image/png", "image/webp"]
-
-
-class ProductImageUploadRequest(AdminPinAuthSchema):
-    content_type: ProductImageContentType
-    size_bytes: int = Field(gt=0)
-    alt_text: str | None = Field(default=None, max_length=200)
+ProductImageContentType = PublicationImageContentType
 
 
-class ProductImageUploadResponse(BaseModel):
-    id: UUID
-    bucket: str
-    path: str
-    token: str
-    signed_upload_url: str
-    expires_in_seconds: int = 7200
-
-
-class ProductImageCompleteRequest(AdminPinAuthSchema):
+class ProductImageUploadRequest(PublicationImageUploadRequest):
     pass
 
 
-class ProductImageDeleteRequest(AdminPinAuthSchema):
+class ProductImageUploadResponse(PublicationImageUploadResponse):
     pass
 
 
-class ProductImageResponse(BaseModel):
-    id: UUID
-    url: str
-    content_type: ProductImageContentType
-    size_bytes: int
-    alt_text: str | None
-    position: int
+class ProductImageCompleteRequest(PublicationImageCompleteRequest):
+    pass
 
 
-class ProductImageManagementResponse(ProductImageResponse):
-    status: Literal["PENDING", "READY"]
+class ProductImageDeleteRequest(PublicationImageDeleteRequest):
+    pass
+
+
+class ProductImageResponse(PublicationImageResponse):
+    pass
+
+
+class ProductImageManagementResponse(PublicationImageManagementResponse):
+    pass
