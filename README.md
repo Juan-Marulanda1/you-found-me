@@ -2,6 +2,8 @@
 
 Backend API para publicar productos en venta y anuncios generales de negocios y emprendimientos. El proyecto separa ambos dominios y comparte la persistencia, paginación y gestión de publicaciones.
 
+El frontend React inicial está en [`frontend/`](frontend/). Consulta su [guía de instalación, configuración y plan de evolución](frontend/README.md).
+
 ## Tecnologías
 
 - Python 3.12+, FastAPI y Pydantic
@@ -44,6 +46,10 @@ La API queda en `http://localhost:8000`; Swagger UI en `/docs` y ReDoc en `/redo
 ## Contrato de la API
 
 Todas las rutas llevan el prefijo `/api/v1` y las respuestas usan `{ "success", "message", "data" }`.
+
+### Acceso para crear publicaciones
+
+`POST /publication-access/verify` valida el encabezado `X-Publication-Key`. El mismo encabezado es obligatorio para `POST /products` y `POST /announcements`. Configura `PUBLICATION_CREATION_KEY` solo en el entorno privado del backend; si no está configurada, esas operaciones responden `503`. Es una clave compartida para controlar quién puede crear, no una cuenta ni una identidad individual. No la incluyas en variables `VITE_*`, el código del frontend ni Git.
 
 | Recurso | Método y ruta | Uso |
 | --- | --- | --- |

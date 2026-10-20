@@ -3,6 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Request, status
 
 from app.core.pagination import PageData, build_page
+from app.core.publication_access import require_publication_creation_key
 from app.core.request import get_client_ip
 from app.core.responses import DataResponse
 
@@ -21,7 +22,12 @@ from .service import AnnouncementService
 router = APIRouter(prefix="/announcements", tags=["Announcements"])
 
 
-@router.post("", response_model=DataResponse[AnnouncementResponse], status_code=201)
+@router.post(
+    "",
+    response_model=DataResponse[AnnouncementResponse],
+    status_code=201,
+    dependencies=[Depends(require_publication_creation_key)],
+)
 def create_announcement(
     data: AnnouncementCreate,
     service: AnnouncementService = Depends(get_announcement_service),

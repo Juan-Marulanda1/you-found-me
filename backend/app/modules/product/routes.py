@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from app.core.pagination import PageData, build_page
+from app.core.publication_access import require_publication_creation_key
 from app.core.request import get_client_ip
 from app.core.responses import DataResponse
 
@@ -31,7 +32,12 @@ from .service import ProductService
 router = APIRouter(prefix="/products", tags=["Products"])
 
 
-@router.post("", response_model=DataResponse[ProductResponse], status_code=201)
+@router.post(
+    "",
+    response_model=DataResponse[ProductResponse],
+    status_code=201,
+    dependencies=[Depends(require_publication_creation_key)],
+)
 def create_product(
     data: ProductCreate,
     service: ProductService = Depends(get_product_service),

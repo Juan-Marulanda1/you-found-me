@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     # Keep Supabase admin keys on the server only. The legacy service_role key
     # remains supported while projects migrate to the newer secret key.
     SUPABASE_URL: str = ""
+    # Shared server-side key required to publish new products or announcements.
+    # Keep it out of frontend build-time variables.
+    PUBLICATION_CREATION_KEY: SecretStr = SecretStr("")
     SUPABASE_SECRET_KEY: SecretStr = SecretStr("")
     SUPABASE_SERVICE_ROLE_KEY: SecretStr = SecretStr("")
     SUPABASE_PRODUCT_IMAGES_BUCKET: str = "product-images"
