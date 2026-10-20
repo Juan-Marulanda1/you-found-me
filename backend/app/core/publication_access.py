@@ -1,8 +1,12 @@
 import hmac
 
-from fastapi import Header, HTTPException
+from fastapi import Header
 
 from app.core.config import settings
+from app.core.exceptions import (
+    InvalidInvitationKeyError,
+    InvitationKeyNotConfiguredError,
+)
 
 
 def require_publication_creation_key(
@@ -11,13 +15,10 @@ def require_publication_creation_key(
     """Dependencia que exige X-Publication-Key igual a PUBLICATION_CREATION_KEY."""
     configured_key = settings.PUBLICATION_CREATION_KEY.get_secret_value()
     if not configured_key:
-        raise HTTPException(
-            status_code=503,
-            detail="Publication creation is not configured.",
-        )
+        raise InvitationKeyNotConfiguredError()
 
     # La comparación tarda lo mismo aunque coincida parcialmente el prefijo.
     if not x_publication_key or not hmac.compare_digest(
         x_publication_key, configured_key
     ):
-        raise HTTPException(status_code=403, detail="Invalid publication access key.")
+        raise InvalidInvitationKeyError()

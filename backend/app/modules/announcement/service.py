@@ -150,7 +150,7 @@ class AnnouncementService:
         ):
             self.limiter.record_failure("announcement", announcement.id, client_ip)
             logger.warning(
-                "Invalid management PIN for announcement %s", announcement.id
+                "PIN de administración incorrecto para el aviso %s", announcement.id
             )
             raise InvalidAdminPinError()
         self.limiter.record_success("announcement", announcement.id, client_ip)

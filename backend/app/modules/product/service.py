@@ -150,7 +150,9 @@ class ProductService:
             admin_pin, product.admin_pin_hash
         ):
             self.limiter.record_failure("product", product.id, client_ip)
-            logger.warning("Invalid management PIN for product %s", product.id)
+            logger.warning(
+                "PIN de administración incorrecto para el producto %s", product.id
+            )
             raise InvalidAdminPinError()
         self.limiter.record_success("product", product.id, client_ip)
 

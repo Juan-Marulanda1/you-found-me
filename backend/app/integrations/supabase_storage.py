@@ -12,7 +12,7 @@ class SupabaseStorageError(Exception):
 
     def __init__(self, *, not_found: bool = False):
         self.not_found = not_found
-        super().__init__("Supabase Storage request failed.")
+        super().__init__("Falló la solicitud a Supabase Storage.")
 
 
 @dataclass(frozen=True)

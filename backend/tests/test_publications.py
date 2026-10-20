@@ -21,6 +21,7 @@ from app.modules.announcement.schemas import AnnouncementCreate, AnnouncementUpd
 from app.modules.announcement.service import AnnouncementService
 from app.modules.product.schemas import ProductCreate
 from app.modules.product.service import ProductService
+from app.modules.publication.image_schemas import PublicationImageResponse
 from app.modules.publication.repository import PageResult
 
 
@@ -377,7 +378,7 @@ class ManagementPinTests(unittest.TestCase):
         )
 
         self.assertEqual(status_code, 401)
-        self.assertFalse(response["success"])
+        self.assertEqual(response["code"], "authentication_required")
 
     def test_proxy_headers_are_trusted_only_from_configured_networks(self):
         from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
@@ -615,8 +616,9 @@ class EmptyAnnouncementImageService:
         self.cover_images = cover_images or {}
 
     def list_cover_images(self, announcement_ids):
+        # Igual que el servicio real: devuelve modelos de respuesta, no diccionarios.
         return {
-            announcement_id: image
+            announcement_id: PublicationImageResponse.model_validate(image)
             for announcement_id, image in self.cover_images.items()
             if announcement_id in announcement_ids
         }

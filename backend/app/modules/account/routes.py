@@ -3,10 +3,11 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.orm import Session
 
+from app.core.exceptions import AccountAlreadyExistsError, InvitationsUnavailableError
 from app.core.publication_access import require_publication_creation_key
 from app.core.request import get_client_ip
 from app.core.responses import DataResponse
@@ -55,7 +56,7 @@ class AccountInvitationRequest(BaseModel):
             or "." not in domain
             or any(c.isspace() for c in email)
         ):
-            raise ValueError("Enter a valid email address.")
+            raise ValueError("Escribe un correo electrónico válido.")
         return email
 
 
@@ -105,9 +106,8 @@ def request_account_invitation(
     # El correo se autoriza aunque Supabase indique que la cuenta ya existía.
     try:
         invite_account(data.email)
-    except HTTPException as error:
-        if error.status_code != status.HTTP_409_CONFLICT:
-            raise
+    except AccountAlreadyExistsError:
+        pass
 
     if db.get(PublicationInvitation, data.email) is None:
         db.add(PublicationInvitation(email=data.email))
@@ -115,13 +115,11 @@ def request_account_invitation(
             db.commit()
         except Exception as error:
             db.rollback()
-            logger.exception("Failed to register an approved account invitation")
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Account invitations are temporarily unavailable.",
-            ) from error
+            logger.exception("No se pudo registrar la invitación aprobada")
+            raise InvitationsUnavailableError() from error
     return DataResponse[bool](
-        message="Invitation request accepted. Check your email or sign in.", data=True
+        message="Solicitud de invitación aceptada. Revisa tu correo o inicia sesión.",
+        data=True,
     )
 
 
@@ -177,7 +175,7 @@ def get_my_publications(
             )
         )
     return DataResponse[OwnedPublicationsResponse](
-        message="Your publications were retrieved.",
+        message="Tus publicaciones se obtuvieron correctamente.",
         data=OwnedPublicationsResponse(
             products=[
                 ProductManagementResponse.model_validate(item).model_copy(
@@ -219,4 +217,6 @@ def claim_legacy_publication(
             user.id,
             get_client_ip(request),
         )
-    return DataResponse[bool](message="Publication claimed successfully.", data=True)
+    return DataResponse[bool](
+        message="La publicación quedó vinculada a tu cuenta.", data=True
+    )

@@ -1,8 +1,9 @@
 from decimal import Decimal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, Query, Request, status
 
+from app.core.exceptions import InvalidPriceRangeError
 from app.core.pagination import PageData, build_page
 from app.core.request import get_client_ip
 from app.core.responses import DataResponse
@@ -50,7 +51,7 @@ def create_product(
 ):
     """Crea un producto asociado a la cuenta autenticada."""
     return DataResponse[ProductResponse](
-        message="Product created successfully.", data=service.create(data, user.id)
+        message="Producto creado correctamente.", data=service.create(data, user.id)
     )
 
 
@@ -68,9 +69,7 @@ def list_products(
 ):
     """Lista productos activos con filtros y paginación; ruta pública."""
     if min_price is not None and max_price is not None and min_price > max_price:
-        raise HTTPException(
-            status_code=422, detail="min_price cannot be greater than max_price"
-        )
+        raise InvalidPriceRangeError()
 
     result = service.list(
         page=page,
@@ -92,7 +91,7 @@ def list_products(
         for product in result.items
     ]
     return DataResponse[PageData[ProductResponse]](
-        message="Products retrieved successfully.",
+        message="Productos obtenidos correctamente.",
         data=build_page(items, page=page, page_size=page_size, total=result.total),
     )
 
@@ -107,7 +106,7 @@ def get_product(
     product = service.get_public_by_id(product_id)
     cover_image = image_service.list_cover_images([product.id]).get(product.id)
     return DataResponse[ProductResponse](
-        message="Product retrieved successfully.",
+        message="Producto obtenido correctamente.",
         data=ProductResponse.model_validate(product).model_copy(
             update={"cover_image": cover_image}
         ),
@@ -127,7 +126,7 @@ def get_product_for_management(
 ):
     """Devuelve los datos privados del producto al dueño o con el PIN heredado."""
     return DataResponse[ProductManagementResponse](
-        message="Product management access granted.",
+        message="Acceso de administración concedido.",
         data=service.get_for_management(
             product_id,
             data.admin_pin,
@@ -147,7 +146,7 @@ def update_product(
 ):
     """Actualiza campos, estado o PIN de un producto autorizado."""
     return DataResponse[ProductManagementResponse](
-        message="Product updated successfully.",
+        message="Producto actualizado correctamente.",
         data=service.update(
             product_id,
             data,
@@ -176,7 +175,7 @@ def delete_product(
         before_delete=image_service.remove_publication_files,
         owner_id=user.id if user else None,
     )
-    return DataResponse[None](message="Product deleted successfully.")
+    return DataResponse[None](message="Producto eliminado correctamente.")
 
 
 @router.post(
@@ -198,7 +197,7 @@ def create_product_image_upload(
     )
     upload = image_service.create_upload(product, data)
     return DataResponse[ProductImageUploadResponse](
-        message="Signed image upload created.", data=upload
+        message="Carga de imagen autorizada.", data=upload
     )
 
 
@@ -221,7 +220,7 @@ def complete_product_image_upload(
     )
     image = image_service.complete(product_id, image_id)
     return DataResponse[ProductImageResponse](
-        message="Product image is ready.", data=image
+        message="La imagen del producto está lista.", data=image
     )
 
 
@@ -237,7 +236,7 @@ def list_product_images(
     """Lista las imágenes confirmadas de un producto activo."""
     product_service.get_public_by_id(product_id)
     return DataResponse[list[ProductImageResponse]](
-        message="Product images retrieved successfully.",
+        message="Imágenes del producto obtenidas correctamente.",
         data=image_service.list_public(product_id),
     )
 
@@ -259,7 +258,7 @@ def list_product_images_for_management(
         product_id, data.admin_pin, get_client_ip(request), user.id if user else None
     )
     return DataResponse[list[ProductImageManagementResponse]](
-        message="Product images retrieved for management.",
+        message="Imágenes del producto obtenidas para administración.",
         data=image_service.list_management(product_id),
     )
 
@@ -282,4 +281,4 @@ def delete_product_image(
         product_id, data.admin_pin, get_client_ip(request), user.id if user else None
     )
     image_service.delete(product_id, image_id)
-    return DataResponse[None](message="Product image deleted successfully.")
+    return DataResponse[None](message="Imagen del producto eliminada correctamente.")

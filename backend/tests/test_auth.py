@@ -3,10 +3,10 @@ import unittest
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
-from fastapi import HTTPException
 from pydantic import SecretStr
 
 from app.core import supabase_auth
+from app.core.exceptions import AppException
 from app.database.invitation import PublicationInvitation
 
 
@@ -74,13 +74,13 @@ class AuthenticatedAccountTests(unittest.TestCase):
             ),
             patch.object(supabase_auth, "urlopen", return_value=Response()),
         ):
-            with self.assertRaises(HTTPException) as error:
+            with self.assertRaises(AppException) as error:
                 supabase_auth.get_authenticated_user("test-access-token")
 
         self.assertEqual(error.exception.status_code, 403)
 
     def test_missing_bearer_token_is_rejected(self):
-        with self.assertRaises(HTTPException) as error:
+        with self.assertRaises(AppException) as error:
             supabase_auth.require_authenticated_user(None)
 
         self.assertEqual(error.exception.status_code, 401)
@@ -92,7 +92,7 @@ class AuthenticatedAccountTests(unittest.TestCase):
         db.get.side_effect = [None, None]
 
         with patch.object(supabase_auth, "get_authenticated_user", return_value=user):
-            with self.assertRaises(HTTPException) as error:
+            with self.assertRaises(AppException) as error:
                 supabase_auth.require_authenticated_user("Bearer token", db)
 
         self.assertEqual(error.exception.status_code, 403)

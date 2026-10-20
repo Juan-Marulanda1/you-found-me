@@ -47,13 +47,13 @@ class Settings(BaseSettings):
         # Un comodín permitiría falsificar X-Forwarded-For y evadir el límite de PIN.
         networks = [network.strip() for network in value.split(",") if network.strip()]
         if "*" in networks:
-            raise ValueError("FORWARDED_ALLOW_IPS must not contain '*'.")
+            raise ValueError("FORWARDED_ALLOW_IPS no puede contener '*'.")
         try:
             for network in networks:
                 ip_network(network, strict=False)
         except ValueError as error:
             raise ValueError(
-                "FORWARDED_ALLOW_IPS must contain IP addresses or CIDR networks."
+                "FORWARDED_ALLOW_IPS solo admite direcciones IP o redes CIDR."
             ) from error
         return ",".join(networks)
 

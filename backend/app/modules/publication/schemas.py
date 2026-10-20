@@ -44,10 +44,10 @@ class PublicationUpdateSchema(AdminPinAuthSchema):
     def validate_update_fields(self):
         changed_fields = self.model_fields_set - {"admin_pin"}
         if not changed_fields:
-            raise ValueError("At least one publication field must be provided.")
+            raise ValueError("Envía al menos un campo para actualizar.")
 
         for field in changed_fields - self.nullable_fields:
             if getattr(self, field) is None:
-                raise ValueError(f"{field} cannot be null.")
+                raise ValueError(f"El campo «{field}» no puede quedar vacío.")
 
         return self

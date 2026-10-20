@@ -165,9 +165,7 @@ class PublicationImageService[ImageModel]:
                 self.storage.remove([image.storage_path])
                 self.repository.delete(image)
             except SupabaseStorageError:
-                logger.exception(
-                    "Failed to clean up invalid publication image %s", image.id
-                )
+                logger.exception("No se pudo limpiar la imagen inválida %s", image.id)
             raise self.validation_error()
 
         image.status = "READY"
