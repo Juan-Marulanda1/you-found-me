@@ -41,6 +41,7 @@ def get_authenticated_user(access_token: str) -> AuthenticatedUser:
             detail="Account authentication is not configured.",
         )
 
+    # Supabase valida el token; no se confía en datos decodificados por el cliente.
     request = Request(
         _auth_url("user"),
         headers={
@@ -111,11 +112,13 @@ def require_authenticated_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     user = get_authenticated_user(token)
+    # La sesión válida también debe pertenecer a un correo que recibió invitación.
     if db.get(PublicationInvitation, user.email) is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This account was not invited to publish.",
         )
+    # Crea el registro local solo una vez, al primer acceso autenticado.
     if db.get(PublicationOwner, user.id) is None:
         db.add(PublicationOwner(id=user.id))
         try:
@@ -147,6 +150,7 @@ def invite_account(email: str) -> None:
             detail="Account invitations are not configured.",
         )
 
+    # El enlace de Supabase debe volver a una URL autorizada del frontend.
     query = urlencode(
         {"redirect_to": settings.SUPABASE_AUTH_REDIRECT_URL}
         if settings.SUPABASE_AUTH_REDIRECT_URL

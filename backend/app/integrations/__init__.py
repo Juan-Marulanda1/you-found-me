@@ -1,1 +1,1 @@
-"""Adapters for external services."""
+"""Adaptadores para servicios externos."""

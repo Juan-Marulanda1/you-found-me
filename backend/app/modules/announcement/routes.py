@@ -32,6 +32,8 @@ from .schemas import (
 )
 from .service import AnnouncementService
 
+# Las búsquedas son públicas; las escrituras y la administración delegan la
+# autorización al servicio.
 router = APIRouter(prefix="/announcements", tags=["Announcements"])
 
 

@@ -9,6 +9,7 @@ from app.modules.product.routes import router as product_router
 router = APIRouter()
 
 
+# Conserva compatibilidad con clientes que verifican la clave antes de invitar.
 @router.post(
     "/publication-access/verify",
     response_model=DataResponse[bool],

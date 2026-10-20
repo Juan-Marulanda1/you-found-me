@@ -8,7 +8,7 @@ from app.core.config import settings
 from app.database.base import Base
 
 # -----------------------------------------------------------------------------
-# Alembic Configuration
+# Configuración de Alembic
 # -----------------------------------------------------------------------------
 
 config = context.config

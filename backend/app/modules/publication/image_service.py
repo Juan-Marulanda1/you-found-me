@@ -35,7 +35,7 @@ _CONTENT_TYPE_EXTENSIONS: dict[PublicationImageContentType, str] = {
 
 
 class PublicationImageService[ImageModel]:
-    """Validates uploads and coordinates metadata with Supabase Storage."""
+    """Valida cargas y coordina sus metadatos con Supabase Storage."""
 
     def __init__(
         self,
@@ -130,6 +130,8 @@ class PublicationImageService[ImageModel]:
                 raise self.pending_error() from None
             raise ImageStorageUnavailableError() from None
 
+        # La URL firmada autoriza la carga, pero el servidor verifica el objeto real
+        # antes de publicarlo.
         object_metadata = metadata.get("metadata") or {}
         actual_size = (
             metadata.get("size")

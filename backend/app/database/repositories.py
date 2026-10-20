@@ -11,7 +11,7 @@ from app.modules.publication.repository import PageResult
 
 
 class SQLAlchemyPublicationRepository[Entity: Base]:
-    """SQLAlchemy adapter shared by the product and announcement modules."""
+    """Adaptador SQLAlchemy compartido por los módulos de productos y avisos."""
 
     def __init__(self, db: Session, model: type[Entity]):
         self.db = db
@@ -68,6 +68,8 @@ class SQLAlchemyPublicationRepository[Entity: Base]:
             self.db.add(PublicationOwner(id=owner_id))
             self.db.flush()
         if current_owner is None:
+            # La condición owner_id IS NULL evita que dos reclamaciones simultáneas
+            # asignen el mismo registro.
             result = self.db.execute(
                 update(self.model)
                 .where(

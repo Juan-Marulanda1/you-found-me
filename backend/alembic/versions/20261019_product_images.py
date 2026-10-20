@@ -1,8 +1,8 @@
-"""Add Supabase-backed product image metadata.
+"""Agrega metadatos de imágenes de productos almacenadas en Supabase.
 
-Revision ID: 20261019_product_images
-Revises: 20261019_public_phone
-Create Date: 2026-10-19
+Identificador de revisión: 20261019_product_images
+Revisión anterior: 20261019_public_phone
+Fecha de creación: 2026-10-19
 
 """
 

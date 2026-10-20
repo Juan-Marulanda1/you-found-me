@@ -13,6 +13,7 @@ SessionFactory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
 def get_db() -> Generator[Session, None, None]:
+    """Entrega una sesión por solicitud y la cierra al terminar la respuesta."""
     db = SessionFactory()
     try:
         yield db

@@ -1,4 +1,4 @@
-"""Helpers for hashing per-publication management PINs."""
+"""Funciones para generar y validar hashes de PIN de administración."""
 
 import hashlib
 import hmac

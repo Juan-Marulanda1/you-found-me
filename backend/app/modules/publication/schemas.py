@@ -12,15 +12,14 @@ class AdminPinCreateSchema(BaseModel):
 
 
 class PublicationCreateSchema(AdminPinCreateSchema):
-    # Phone numbers stay private unless the publisher checks an explicit consent.
+    # El teléfono es privado salvo que quien publica autorice mostrarlo.
     contact_phone_public: bool = False
 
 
 class AdminPinAuthSchema(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    # Four-digit values remain accepted so records created by the first API
-    # version can still be managed after their hashes are migrated.
+    # Acepta PIN de cuatro dígitos para administrar registros de la primera versión.
     admin_pin: str | None = Field(
         default=None, min_length=4, max_length=12, pattern=r"^\d{4,12}$"
     )

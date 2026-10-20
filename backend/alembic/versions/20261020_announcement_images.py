@@ -1,8 +1,8 @@
-"""Add Supabase-backed announcement image metadata.
+"""Agrega metadatos de imágenes de avisos almacenadas en Supabase.
 
-Revision ID: 20261020_announcement_images
-Revises: 20261019_product_images
-Create Date: 2026-10-20
+Identificador de revisión: 20261020_announcement_images
+Revisión anterior: 20261019_product_images
+Fecha de creación: 2026-10-20
 
 """
 

@@ -1,7 +1,7 @@
 [project]
 name = "backend"
 version = "0.1.0"
-description = "Backend API for product listings and business announcements"
+description = "API para publicaciones de productos y avisos comerciales"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

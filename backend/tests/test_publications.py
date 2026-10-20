@@ -25,7 +25,7 @@ from app.modules.publication.repository import PageResult
 
 
 def call_asgi(app, method: str, path: str, body: dict | None = None):
-    """Exercise the real FastAPI router without requiring a test-client extra."""
+    """Prueba el router real de FastAPI sin depender de un cliente adicional."""
     parsed_path = urlsplit(path)
     request_body = json.dumps(body).encode() if body is not None else b""
     messages = []

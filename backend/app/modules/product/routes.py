@@ -33,6 +33,8 @@ from .schemas import (
 )
 from .service import ProductService
 
+# Las búsquedas son públicas; las escrituras y la administración delegan la
+# autorización al servicio.
 router = APIRouter(prefix="/products", tags=["Products"])
 
 

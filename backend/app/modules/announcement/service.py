@@ -67,6 +67,7 @@ class AnnouncementService:
     def claim(
         self, announcement_id: UUID, admin_pin: str, owner_id: UUID, client_ip: str
     ) -> Announcement:
+        # Solo se reclama un registro sin dueño y después de validar su PIN.
         announcement = self.get_by_id(announcement_id)
         if announcement.owner_id == owner_id:
             return announcement
@@ -151,6 +152,8 @@ class AnnouncementService:
         client_ip: str,
         owner_id: UUID | None,
     ) -> None:
+        # Con dueño, solo su sesión autoriza y se responde 404 para no revelar el
+        # registro. Sin dueño, se admite el PIN heredado con límite de intentos.
         if announcement.owner_id is not None:
             if announcement.owner_id != owner_id:
                 raise PublicationNotFoundError()

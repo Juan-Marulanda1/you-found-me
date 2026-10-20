@@ -1,15 +1,15 @@
-"""Add reusable account ownership to publications.
+"""Agrega propiedad de cuenta reutilizable a las publicaciones.
 
-Revision ID: 20261020_publication_owners
-Revises: 20261020_announcement_images
-Create Date: 2026-10-20
+Identificador de revisión: 20261020_publication_owners
+Revisión anterior: 20261020_announcement_images
+Fecha de creación: 2026-10-20
 
-Existing listings stay unclaimed (owner_id is NULL). Their PIN hashes are
-retained so owners can claim them after signing in.
+Los registros existentes quedan sin reclamar (owner_id es NULL). Se conservan
+los hashes de PIN para que sus propietarios puedan reclamarlos al iniciar sesión.
 
-On downgrade, account-managed listings without a PIN receive an unusable marker
-before restoring the old NOT NULL constraint. This rollback cannot restore PIN
-management for listings created after account ownership was enabled.
+Al revertir, los registros administrados por cuenta y sin PIN reciben un valor
+inutilizable antes de restaurar la restricción NOT NULL. La reversión no puede
+restaurar la gestión por PIN de registros creados después de activar las cuentas.
 """
 
 from collections.abc import Sequence

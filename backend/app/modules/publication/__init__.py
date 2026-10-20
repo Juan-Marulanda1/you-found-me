@@ -1,1 +1,1 @@
-"""Shared contracts and persistence boundaries for public listings."""
+"""Contratos y límites de persistencia compartidos por las publicaciones."""

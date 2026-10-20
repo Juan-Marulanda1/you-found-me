@@ -7,7 +7,7 @@ from app.database.base import Base
 
 
 class PublicationInvitation(Base):
-    """Allowlist of email addresses approved by the shared invite key."""
+    """Lista de correos autorizados mediante la clave de invitación."""
 
     __tablename__ = "publication_invitations"
 

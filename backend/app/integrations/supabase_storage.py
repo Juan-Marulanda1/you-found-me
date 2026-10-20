@@ -1,4 +1,4 @@
-"""Small Supabase Storage REST adapter (keeps provider details out of routes)."""
+"""Adaptador REST de Supabase Storage para aislar el proveedor de las rutas."""
 
 import json
 from dataclasses import dataclass
@@ -78,8 +78,8 @@ class SupabaseStorage:
 
         body = json.dumps(payload).encode("utf-8") if payload is not None else None
         headers = {"apikey": self.api_key}
-        # New Supabase secret keys are opaque API keys, not JWTs. Old
-        # service_role keys are JWTs and also need the Authorization header.
+        # Las claves secret nuevas no son JWT.
+        # Las service_role antiguas sí requieren el encabezado Bearer.
         if not self.api_key.startswith("sb_secret_"):
             headers["Authorization"] = f"Bearer {self.api_key}"
         if body is not None:

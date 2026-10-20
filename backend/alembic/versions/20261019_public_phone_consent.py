@@ -1,8 +1,8 @@
-"""Require explicit consent before exposing a publication phone number.
+"""Exige consentimiento explícito para mostrar el teléfono de una publicación.
 
-Revision ID: 20261019_public_phone
-Revises: 20261019_marketplace
-Create Date: 2026-10-19
+Identificador de revisión: 20261019_public_phone
+Revisión anterior: 20261019_marketplace
+Fecha de creación: 2026-10-19
 
 """
 

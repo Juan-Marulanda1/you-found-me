@@ -14,8 +14,8 @@ class Settings(BaseSettings):
 
     HOST: str = "127.0.0.1"
     PORT: int = 8000
-    # Configure this with the exact proxy IPs/CIDRs used by the deployment.
-    # Uvicorn trusts forwarded headers only from these addresses.
+    # Uvicorn acepta encabezados reenviados solo desde estas direcciones.
+    # Configura las IP o redes CIDR exactas de los proxies del despliegue.
     FORWARDED_ALLOW_IPS: str = "127.0.0.1,::1"
 
     API_PREFIX: str = "/api/v1"
@@ -24,13 +24,13 @@ class Settings(BaseSettings):
 
     ALLOWED_ORIGINS: list[str] = Field(default_factory=list)
 
-    # Keep Supabase admin keys on the server only. The legacy service_role key
-    # remains supported while projects migrate to the newer secret key.
+    # Las claves administrativas de Supabase solo se usan en el servidor.
+    # Se conserva service_role para proyectos que migran a la clave secret.
     SUPABASE_URL: str = ""
     SUPABASE_PUBLISHABLE_KEY: SecretStr = SecretStr("")
     SUPABASE_AUTH_REDIRECT_URL: str = ""
-    # Shared server-side key required to request a publisher account invitation.
-    # Keep it out of frontend build-time variables.
+    # Clave privada compartida para solicitar invitaciones de publicadores.
+    # No debe incluirse entre las variables de compilación del frontend.
     PUBLICATION_CREATION_KEY: SecretStr = SecretStr("")
     SUPABASE_SECRET_KEY: SecretStr = SecretStr("")
     SUPABASE_SERVICE_ROLE_KEY: SecretStr = SecretStr("")

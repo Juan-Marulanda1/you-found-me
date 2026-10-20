@@ -18,7 +18,7 @@ def _build_error_response(message: str, status_code: int):
 
 
 def register_exception_handlers(app: FastAPI):
-
+    # Mantiene un formato estable para errores de dominio, validación e infraestructura.
     @app.exception_handler(AppException)
     async def app_exception_handler(
         request: Request,

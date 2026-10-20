@@ -2,9 +2,9 @@ from fastapi import Request
 
 
 def get_client_ip(request: Request) -> str:
-    """Return the peer address resolved by Uvicorn's trusted proxy middleware.
+    """Devuelve la dirección del cliente resuelta por el middleware confiable.
 
-    Do not read X-Forwarded-For here: the ASGI server must first validate that
-    the connecting peer is in FORWARDED_ALLOW_IPS.
+    No leas X-Forwarded-For aquí: el servidor ASGI primero debe validar que
+    la conexión procede de una dirección incluida en FORWARDED_ALLOW_IPS.
     """
     return request.client.host if request.client else "unknown"

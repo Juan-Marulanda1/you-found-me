@@ -1,8 +1,8 @@
-"""Add business announcements and product listings.
+"""Agrega avisos comerciales y publicaciones de productos.
 
-Revision ID: 20261019_marketplace
-Revises: 1b159c348e7e
-Create Date: 2026-10-19
+Identificador de revisión: 20261019_marketplace
+Revisión anterior: 1b159c348e7e
+Fecha de creación: 2026-10-19
 
 """
 

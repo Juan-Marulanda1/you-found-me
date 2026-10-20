@@ -5,6 +5,7 @@ from app.api.router import router as api_router
 from app.core.config import settings
 from app.core.exception_handlers import register_exception_handlers
 
+# Punto de entrada ASGI: configura metadatos, CORS, errores y rutas versionadas.
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
@@ -12,6 +13,7 @@ app = FastAPI(
     debug=settings.DEBUG,
 )
 
+# Restringe las solicitudes de navegador a los orígenes configurados para esta API.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,

@@ -14,7 +14,7 @@ class _AttemptState:
 
 
 class PinAttemptLimiter:
-    """Per-process guard against repeated PIN guesses."""
+    """Limita intentos consecutivos de PIN dentro del proceso de la API."""
 
     def __init__(self, max_attempts: int = 5, window_seconds: int = 900):
         self.max_attempts = max_attempts
@@ -62,6 +62,7 @@ class PinAttemptLimiter:
 
     def _cleanup(self, now: float) -> None:
         self._operations += 1
+        # Limpia por lotes para evitar recorrer el mapa en cada intento.
         if self._operations % 256:
             return
         expired = []

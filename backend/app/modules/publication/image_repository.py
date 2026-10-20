@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 
 class PublicationImageRepository[ImageModel]:
-    """Persistence operations shared by image records for each publication type."""
+    """Operaciones de persistencia compartidas por imágenes de publicaciones."""
 
     def __init__(self, db: Session, model: type[ImageModel], owner_field: str):
         self.db = db

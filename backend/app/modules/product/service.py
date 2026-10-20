@@ -66,6 +66,7 @@ class ProductService:
     def claim(
         self, product_id: UUID, admin_pin: str, owner_id: UUID, client_ip: str
     ) -> Product:
+        # Solo se reclama un registro sin dueño y después de validar su PIN.
         product = self.get_by_id(product_id)
         if product.owner_id == owner_id:
             return product
@@ -150,6 +151,8 @@ class ProductService:
         client_ip: str,
         owner_id: UUID | None,
     ) -> None:
+        # Con dueño, solo su sesión autoriza y se responde 404 para no revelar el
+        # registro. Sin dueño, se admite el PIN heredado con límite de intentos.
         if product.owner_id is not None:
             if product.owner_id != owner_id:
                 raise PublicationNotFoundError()

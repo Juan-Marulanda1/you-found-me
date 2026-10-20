@@ -93,6 +93,7 @@ def request_account_invitation(
     data: AccountInvitationRequest,
     db: Session = Depends(get_db),
 ):
+    # El correo se autoriza aunque Supabase indique que la cuenta ya existía.
     try:
         invite_account(data.email)
     except HTTPException as error:
@@ -125,6 +126,7 @@ def get_my_publications(
         get_announcement_image_service
     ),
 ):
+    # Combina publicaciones propias y antiguas sin dueño cuyo correo coincide.
     products = product_service.list_by_owner(user.id)
     announcements = announcement_service.list_by_owner(user.id)
     legacy_products = product_service.list_claimable_by_email(user.email)

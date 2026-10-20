@@ -15,6 +15,7 @@ def require_publication_creation_key(
             detail="Publication creation is not configured.",
         )
 
+    # La comparación tarda lo mismo aunque coincida parcialmente el prefijo.
     if not x_publication_key or not hmac.compare_digest(
         x_publication_key, configured_key
     ):

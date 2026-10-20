@@ -9,7 +9,7 @@ from app.database.base import Base
 
 
 class PublicationOwner(Base):
-    """Ownership row keyed by the identity provider's stable user UUID."""
+    """Registro asociado al UUID estable del proveedor de identidad."""
 
     __tablename__ = "publication_owners"
 

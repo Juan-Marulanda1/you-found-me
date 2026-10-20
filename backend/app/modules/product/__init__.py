@@ -1,1 +1,1 @@
-"""Product listings for sale."""
+"""Publicaciones de productos a la venta."""

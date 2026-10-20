@@ -34,7 +34,7 @@ class TimestampMixin:
 
 
 class PublicationContactMixin:
-    """Shared contact and management fields for public listings."""
+    """Campos de contacto, consentimiento y propiedad compartidos por publicaciones."""
 
     contact_name: Mapped[str] = mapped_column(String(100), nullable=False)
     contact_phone: Mapped[str] = mapped_column(String(20), nullable=False)
@@ -54,5 +54,5 @@ class PublicationContactMixin:
 
     @property
     def public_contact_phone(self) -> str | None:
-        """Expose the phone only when the publisher explicitly opted in."""
+        """Expone el teléfono solo si quien publica dio su consentimiento."""
         return self.contact_phone if self.contact_phone_public else None

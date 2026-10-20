@@ -4,6 +4,8 @@ from pydantic import BaseModel
 
 
 class PageData[T](BaseModel):
+    """Página de resultados con los metadatos que necesita el cliente."""
+
     items: list[T]
     page: int
     page_size: int
