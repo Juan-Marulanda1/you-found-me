@@ -10,7 +10,7 @@ frontend/src/
   pages/               Pantallas de catálogo, detalle, cuenta, publicación y gestión
   components/          Elementos visuales reutilizables
   services/            Cliente HTTP, Auth, Storage y referencias locales
-  utils/               Formato de precios, fechas y etiquetas
+  utils/               Formatos, etiquetas de estado y rutas internas (routes.js)
   styles.css           Estilos globales y de componentes
 ~~~
 
@@ -69,8 +69,9 @@ En Supabase Auth, permite las URL de regreso de desarrollo y producción y confi
 1. Actualiza el título y la descripción en index.html, la marca y textos de las páginas, y los estilos en src/styles.css.
 2. Ajusta VITE_API_BASE_URL y las credenciales publicables de Supabase para cada entorno.
 3. Agrega o cambia pantallas en src/pages y componentes reutilizables en src/components.
-4. Agrega las llamadas HTTP en src/services y mantén la lógica de presentación en las páginas.
-5. Si se cambia el dominio del backend, coordina sus rutas y esquemas con la API y actualiza su contrato.
-6. Ejecuta npm run build antes de publicar y configura el hosting para servir index.html también en rutas internas como /cuenta y /mis-publicaciones.
+4. Agrega las llamadas HTTP en src/services y mantén la lógica de presentación en las páginas. Las URL internas se construyen con src/utils/routes.js y las etiquetas de estado con src/utils/format.js.
+5. Si cambias los límites de imágenes del backend, actualiza MAX_IMAGES y MAX_BYTES en src/services/imageUpload.js. Si la API agrega mensajes de error, tradúcelos en MESSAGE_TRANSLATIONS de src/services/api.js.
+6. Si se cambia el dominio del backend, coordina sus rutas y esquemas con la API y actualiza su contrato.
+7. Ejecuta npm run build antes de publicar y configura el hosting para servir index.html también en rutas internas como /cuenta y /mis-publicaciones.
 
 No incluyas claves administrativas ni lógica de autorización secreta en el bundle web. La API es quien decide si la sesión puede publicar o administrar contenido.

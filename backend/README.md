@@ -109,4 +109,4 @@ Para cambiar el esquema, crea una revisión nueva con Alembic, inspecciona el SQ
 5. Crea migraciones nuevas para los cambios de persistencia y añade pruebas del dominio.
 6. Ajusta CORS, Auth, Storage y límites de carga según el despliegue. No copies secretos entre proyectos.
 
-Mantén las reglas de negocio en servicios y las consultas en repositorios. Evita que una ruta de FastAPI implemente directamente consultas SQL o lógica de Storage.
+Documenta cada endpoint con una docstring breve: FastAPI la publica como descripción en Swagger (/docs). Mantén las reglas de negocio en servicios y las consultas en repositorios. Evita que una ruta de FastAPI implemente directamente consultas SQL o lógica de Storage.
