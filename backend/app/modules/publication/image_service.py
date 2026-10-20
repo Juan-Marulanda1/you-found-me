@@ -150,7 +150,8 @@ class PublicationImageService[ImageModel]:
             or object_metadata.get("size")
         )
         actual_type = (
-            metadata.get("mimetype")
+            metadata.get("content_type")
+            or metadata.get("mimetype")
             or metadata.get("contentType")
             or object_metadata.get("mimetype")
             or object_metadata.get("contentType")
