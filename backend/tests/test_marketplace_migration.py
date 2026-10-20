@@ -88,6 +88,51 @@ class MarketplaceMigrationTests(unittest.TestCase):
                     ).scalar_one(),
                     "products",
                 )
+                self.assertEqual(
+                    connection.execute(
+                        text("SELECT to_regclass('product_images')")
+                    ).scalar_one(),
+                    "product_images",
+                )
+                image_columns = {
+                    row["column_name"]
+                    for row in connection.execute(
+                        text(
+                            """
+                            SELECT column_name
+                            FROM information_schema.columns
+                            WHERE table_schema = :schema_name
+                              AND table_name = 'product_images'
+                            """
+                        ),
+                        {"schema_name": schema_name},
+                    ).mappings()
+                }
+                self.assertTrue(
+                    {
+                        "id",
+                        "product_id",
+                        "storage_path",
+                        "content_type",
+                        "size_bytes",
+                        "status",
+                    }.issubset(image_columns)
+                )
+                image_foreign_keys = (
+                    connection.execute(
+                        text(
+                            """
+                        SELECT confdeltype
+                        FROM pg_constraint
+                        WHERE conrelid = 'product_images'::regclass
+                          AND contype = 'f'
+                        """
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+                self.assertEqual(image_foreign_keys, ["c"])
         finally:
             try:
                 if engine is not None:

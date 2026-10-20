@@ -442,6 +442,10 @@ class ManagementPinTests(unittest.TestCase):
         self.assertIn("/api/v1/products", paths)
         self.assertIn("/api/v1/products/{product_id}/manage", paths)
         self.assertIn("patch", paths["/api/v1/products/{product_id}"])
+        self.assertIn("/api/v1/products/{product_id}/images/upload-url", paths)
+        self.assertIn("/api/v1/products/{product_id}/images/{image_id}/complete", paths)
+        self.assertIn("get", paths["/api/v1/products/{product_id}/images"])
+        self.assertIn("/api/v1/products/{product_id}/images/manage", paths)
         announcement_filters = {
             parameter["name"]
             for parameter in paths["/api/v1/announcements"]["get"]["parameters"]
@@ -452,8 +456,13 @@ class ManagementPinTests(unittest.TestCase):
         import app.database.models as registered_models
         from app.database.base import Base
 
-        self.assertCountEqual(registered_models.__all__, ["Announcement", "Product"])
-        self.assertCountEqual(Base.metadata.tables, ["announcements", "products"])
+        self.assertCountEqual(
+            registered_models.__all__, ["Announcement", "Product", "ProductImage"]
+        )
+        self.assertCountEqual(
+            Base.metadata.tables,
+            ["announcements", "products", "product_images"],
+        )
 
     @staticmethod
     def announcement_data():
