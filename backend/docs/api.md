@@ -22,7 +22,7 @@ La API usa el prefijo configurado en API_PREFIX, por defecto /api/v1. Las respue
 | Método | Ruta | Acceso | Uso |
 | --- | --- | --- | --- |
 | POST | /products | Sesión | Crear producto y asociarlo al usuario. |
-| GET | /products | Público | Buscar y paginar productos activos; permite filtros de ciudad, categoría, texto y precio. |
+| GET | /products | Público | Buscar y paginar productos activos; permite filtros de ciudad, categoría, texto y precio. El precio de un producto debe ser de al menos 1000. |
 | GET | /products/{product_id} | Público | Consultar producto activo. |
 | POST | /products/{product_id}/manage | Propietario o PIN heredado | Obtener datos de administración. |
 | PATCH | /products/{product_id} | Propietario o PIN heredado | Editar datos o estado. |

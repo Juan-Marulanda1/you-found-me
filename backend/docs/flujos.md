@@ -70,7 +70,7 @@ sequenceDiagram
     A->>D: Marca la imagen como lista
 ~~~
 
-La API no retransmite el archivo. Supabase Storage entrega una capacidad temporal limitada a una ruta; al confirmar, el backend consulta los metadatos almacenados y solo marca como lista la imagen cuyo tamaño y tipo coinciden con lo esperado. Las imágenes pendientes no se exponen en el catálogo.
+La API no retransmite el archivo. Supabase Storage entrega una capacidad temporal limitada a una ruta; al confirmar, el backend consulta los metadatos almacenados y solo marca como lista la imagen cuyo tamaño y tipo coinciden con lo esperado (Supabase informa el tipo en content_type). Las imágenes pendientes no se exponen en el catálogo.
 
 ## Catálogo y administración
 

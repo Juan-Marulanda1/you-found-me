@@ -45,6 +45,6 @@ El almacenamiento local contiene referencias de compatibilidad y vistas previas,
 
 ## Carga de imágenes
 
-El servicio imageUpload.js solicita primero una ruta firmada a la API, carga el archivo directamente a Supabase Storage y llama al endpoint de confirmación. Si falla la carga, la API puede conservar un registro pendiente para que la pantalla de gestión permita reintentar o limpiar la operación.
+El servicio imageUpload.js solicita primero una ruta firmada a la API, carga el archivo directamente a Supabase Storage y llama al endpoint de confirmación. Si falla la carga, la API puede conservar un registro pendiente para que la pantalla de gestión permita reintentar o limpiar la operación. Si alguna imagen falla al publicar, la página muestra el motivo y un enlace a la publicación creada. Antes de subir, findLowResolutionImages avisa si una imagen mide menos de 800 px de ancho; es solo una recomendación.
 
 La clave de Storage presente en el frontend es publicable. La firma de cargas y las operaciones administrativas usan credenciales del backend y no deben trasladarse al navegador.
