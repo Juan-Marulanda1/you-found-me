@@ -18,7 +18,7 @@ class ProductCreate(PublicationCreateSchema):
     title: str = Field(min_length=3, max_length=150)
     description: str = Field(min_length=10, max_length=10_000)
     category: str = Field(min_length=2, max_length=80)
-    price: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
+    price: Decimal = Field(ge=1000, max_digits=12, decimal_places=2)
     currency: str = Field(
         default="COP", min_length=3, max_length=3, pattern=r"^[A-Z]{3}$"
     )
@@ -36,7 +36,7 @@ class ProductUpdate(PublicationUpdateSchema):
     title: str | None = Field(default=None, min_length=3, max_length=150)
     description: str | None = Field(default=None, min_length=10, max_length=10_000)
     category: str | None = Field(default=None, min_length=2, max_length=80)
-    price: Decimal | None = Field(default=None, gt=0, max_digits=12, decimal_places=2)
+    price: Decimal | None = Field(default=None, ge=1000, max_digits=12, decimal_places=2)
     currency: str | None = Field(
         default=None, min_length=3, max_length=3, pattern=r"^[A-Z]{3}$"
     )
