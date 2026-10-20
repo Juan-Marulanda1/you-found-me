@@ -14,7 +14,7 @@ frontend/src/
   styles.css           Estilos globales y de componentes
 ~~~
 
-Las páginas coordinan el estado de pantalla y llaman a los servicios. services/api.js adjunta el token de sesión a la API y normaliza errores; los servicios de publicaciones conocen las rutas HTTP, y imageUpload.js coordina la carga firmada en Supabase Storage. Consulta [docs/flujos.md](docs/flujos.md) para los diagramas de sesión, solicitudes e imágenes.
+Las páginas coordinan el estado de pantalla y llaman a los servicios. services/api.js adjunta el token de sesión a la API y convierte los errores Problem Details en ApiError; los servicios de publicaciones conocen las rutas HTTP, y imageUpload.js coordina la carga firmada en Supabase Storage. Consulta [docs/flujos.md](docs/flujos.md) para los diagramas de sesión, solicitudes e imágenes.
 
 ## Requisitos
 
@@ -70,7 +70,7 @@ En Supabase Auth, permite las URL de regreso de desarrollo y producción y confi
 2. Ajusta VITE_API_BASE_URL y las credenciales publicables de Supabase para cada entorno.
 3. Agrega o cambia pantallas en src/pages y componentes reutilizables en src/components.
 4. Agrega las llamadas HTTP en src/services y mantén la lógica de presentación en las páginas. Las URL internas se construyen con src/utils/routes.js y las etiquetas de estado con src/utils/format.js.
-5. Si cambias los límites de imágenes del backend, actualiza MAX_IMAGES y MAX_BYTES en src/services/imageUpload.js. Si la API agrega mensajes de error, tradúcelos en MESSAGE_TRANSLATIONS de src/services/api.js.
+5. Si cambias los límites de imágenes del backend, actualiza MAX_IMAGES y MAX_BYTES en src/services/imageUpload.js. Los mensajes de error llegan en español desde la API; si agregas campos nuevos, añade su etiqueta en FIELD_LABELS de src/services/api.js.
 6. Si se cambia el dominio del backend, coordina sus rutas y esquemas con la API y actualiza su contrato.
 7. Ejecuta npm run build antes de publicar y configura el hosting para servir index.html también en rutas internas como /cuenta y /mis-publicaciones.
 

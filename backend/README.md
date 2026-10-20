@@ -10,7 +10,7 @@ FastAPI recibe las solicitudes HTTP y delega en rutas de dominio. Las rutas vali
 backend/
   app/
     api/             Composición y prefijo de las rutas
-    core/            Configuración, seguridad, errores y utilidades comunes
+    core/            Configuración, seguridad, errores (RFC 9457) y utilidades comunes
     database/        Modelos compartidos, sesión y repositorios genéricos
     integrations/    Adaptadores de servicios externos
     modules/
@@ -107,6 +107,7 @@ Para cambiar el esquema, crea una revisión nueva con Alembic, inspecciona el SQ
 3. Dentro del módulo, separa modelo, esquemas Pydantic, repositorio, servicio, dependencias y rutas siguiendo product/ o announcement/.
 4. Registra los modelos en app/database/models.py para que Alembic los vea y agrega el router en app/api/router.py.
 5. Crea migraciones nuevas para los cambios de persistencia y añade pruebas del dominio.
-6. Ajusta CORS, Auth, Storage y límites de carga según el despliegue. No copies secretos entre proyectos.
+6. Declara los errores nuevos como subclases de AppException en app/core/exceptions.py, con code estable y mensaje en español; no lances HTTPException desde rutas o servicios.
+7. Ajusta CORS, Auth, Storage y límites de carga según el despliegue. No copies secretos entre proyectos.
 
 Documenta cada endpoint con una docstring breve: FastAPI la publica como descripción en Swagger (/docs). Mantén las reglas de negocio en servicios y las consultas en repositorios. Evita que una ruta de FastAPI implemente directamente consultas SQL o lógica de Storage.

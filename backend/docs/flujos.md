@@ -23,7 +23,7 @@ flowchart LR
 3. Cada router valida ruta, query y cuerpo con FastAPI y Pydantic, y resuelve servicios mediante dependencias.
 4. El servicio aplica reglas de negocio y usa repositorios para consultar o cambiar el estado persistido.
 5. get_db abre una sesión SQLAlchemy por solicitud y la cierra al terminar.
-6. Los errores de dominio, HTTP y validación se transforman en el formato success/message/data. Las excepciones no previstas se registran en el servidor y devuelven un mensaje genérico.
+6. Las respuestas exitosas usan el formato success/message/data. Los errores de dominio, HTTP y validación se transforman en Problem Details (RFC 9457) con mensajes en español. Las excepciones no previstas se registran en el servidor y devuelven un mensaje genérico.
 
 ## Invitación, sesión y propiedad
 
@@ -82,6 +82,6 @@ El limitador de PIN vive en memoria por proceso: un reinicio borra sus contadore
 
 ## Errores y observabilidad
 
-Las rutas y servicios pueden lanzar errores HTTP o errores de dominio; los manejadores en core/exception_handlers.py los convierten a una envoltura de respuesta común. Los errores inesperados se registran con la ruta y el detalle técnico queda en los logs, no en la respuesta pública.
+Las rutas, dependencias y servicios lanzan subclases de AppException (core/exceptions.py), cada una con estado HTTP, code estable y mensaje en español. Los manejadores de core/exception_handlers.py las convierten, junto con los errores del framework (404, 405) y los de validación de Pydantic, en respuestas application/problem+json construidas por core/problems.py. Los errores de validación se traducen campo por campo según el tipo de error de Pydantic. Los errores inesperados se registran con la ruta y el detalle técnico queda en los logs, no en la respuesta pública. El contrato completo y la lista de códigos están en [api.md](api.md#errores).
 
 Los adaptadores de Supabase aíslan el protocolo del proveedor. Si se sustituye Supabase, se puede cambiar esa integración conservando los contratos de los servicios, siempre que el nuevo adaptador cumpla las mismas operaciones.

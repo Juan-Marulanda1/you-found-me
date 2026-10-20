@@ -30,10 +30,10 @@ flowchart LR
     T --> F[fetch a FastAPI]
     F -->|Authorization Bearer si existe| A[API]
     A --> R[JSON de respuesta]
-    R --> N[Traduccion de errores y estado de pagina]
+    R -->|error| N[Problem Details a ApiError con mensaje en español]
 ~~~
 
-El cliente HTTP adjunta el token de Supabase cuando hay sesión, convierte errores de red y HTTP en ApiError y entrega el campo data a la página. Los servicios de publicaciones concentran las rutas; no deben duplicarse en componentes.
+El cliente HTTP adjunta el token de Supabase cuando hay sesión y entrega el campo data a la página. Los errores de la API llegan como Problem Details (RFC 9457) con el texto ya en español: services/api.js los convierte en ApiError, usa detail como mensaje y, en errores de validación, muestra cada campo con su etiqueta en español. ApiError conserva code, status y errors; la interfaz debe decidir con code, no con el texto. services/auth.js traduce del mismo modo los códigos de error de Supabase Auth. Los servicios de publicaciones concentran las rutas; no deben duplicarse en componentes.
 
 ## Publicación y administración
 
