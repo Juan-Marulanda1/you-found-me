@@ -19,6 +19,18 @@ function editableFields(kind, item) {
   };
 }
 
+function cacheManagedPublication(kind, id, publication, coverImage) {
+  try {
+    rememberPublication(
+      kind,
+      id,
+      coverImage === undefined ? publication : { ...publication, cover_image: coverImage },
+    );
+  } catch {
+    // Browser storage is optional for managing this publication.
+  }
+}
+
 export default function ManagePage() {
   const { kind, id } = useParams();
   const navigate = useNavigate();
@@ -45,10 +57,20 @@ export default function ManagePage() {
       const data = await getPublicationForManagement(kind, id, pin);
       setItem(data);
       setForm(editableFields(kind, data));
-      try { rememberPublication(kind, id); } catch { /* Browser storage is optional for managing this publication. */ }
       setLoaded(true);
-      try { setImages(await listPublicationImagesForManagement(kind, id, pin)); }
-      catch { setNotice('La publicación abrió correctamente, pero no pudimos cargar sus imágenes.'); }
+      try {
+        const managedImages = await listPublicationImagesForManagement(kind, id, pin);
+        setImages(managedImages);
+        cacheManagedPublication(
+          kind,
+          id,
+          data,
+          managedImages.find((image) => image.status === 'READY') || null,
+        );
+      } catch {
+        cacheManagedPublication(kind, id, data);
+        setNotice('La publicación abrió correctamente, pero no pudimos cargar sus imágenes.');
+      }
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -89,6 +111,12 @@ export default function ManagePage() {
       if (newPin) setPin(newPin);
       setItem(saved);
       setForm(editableFields(kind, saved));
+      cacheManagedPublication(
+        kind,
+        id,
+        saved,
+        images.find((image) => image.status === 'READY') || null,
+      );
       setNotice('Cambios guardados.');
     } catch (requestError) {
       setError(requestError.message);
@@ -123,7 +151,16 @@ export default function ManagePage() {
       try { await uploadPublicationImage(kind, id, file, pin); }
       catch (uploadError) { failures.push(`${file.name}: ${uploadError.message}`); }
     }
-    try { setImages(await listPublicationImagesForManagement(kind, id, pin)); }
+    try {
+      const managedImages = await listPublicationImagesForManagement(kind, id, pin);
+      setImages(managedImages);
+      cacheManagedPublication(
+        kind,
+        id,
+        item,
+        managedImages.find((image) => image.status === 'READY') || null,
+      );
+    }
     catch (listError) { setError(listError.message); }
     if (failures.length) setNotice(`No se pudieron subir ${failures.length} imagen(es). Puedes volver a intentarlo.`);
     else setNotice('Imágenes actualizadas.');
@@ -135,7 +172,14 @@ export default function ManagePage() {
     setError('');
     try {
       await deletePublicationImage(kind, id, imageId, pin);
-      setImages((current) => current.filter((image) => image.id !== imageId));
+      const remainingImages = images.filter((image) => image.id !== imageId);
+      setImages(remainingImages);
+      cacheManagedPublication(
+        kind,
+        id,
+        item,
+        remainingImages.find((image) => image.status === 'READY') || null,
+      );
       setNotice('Imagen eliminada.');
     } catch (requestError) {
       setError(requestError.message);

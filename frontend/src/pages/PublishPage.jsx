@@ -78,7 +78,7 @@ export default function PublishPage() {
 
     try {
       const created = await createPublication(kind, body, creationKey);
-      try { rememberPublication(kind, created.id); } catch { /* Publication remains created even if browser storage is unavailable. */ }
+      try { rememberPublication(kind, created.id, created); } catch { /* Publication remains created even if browser storage is unavailable. */ }
 
       if (files.length) {
         const failures = [];
